@@ -26,12 +26,12 @@ public class PlaylistController {
         return playlistService.getPlaylistById(id);
     }
 
-    @PostMapping("/playlists")
+    @PostMapping("/playlists/add")
     public PlaylistEntity createPlaylist(@RequestBody PlaylistEntity playlist) {
         return playlistService.createPlaylist(playlist);
     }
 
-    @PostMapping("/playlists/{playlistId}/songs/{songId}")
+    @PostMapping("/playlists/add-song/playlist/{playlistId}/song/{songId}")
     public void addSongToPlaylist(@PathVariable Long playlistId, @PathVariable Long songId) {
         playlistService.addSongToPlaylist(playlistId, songId);
     }

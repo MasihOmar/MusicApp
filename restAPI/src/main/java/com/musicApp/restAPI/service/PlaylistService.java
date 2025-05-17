@@ -3,12 +3,15 @@ package com.musicApp.restAPI.service;
 import com.musicApp.restAPI.persistance.Playlist.PlaylistEntity;
 import com.musicApp.restAPI.persistance.Playlist.PlaylistRepository;
 import com.musicApp.restAPI.persistance.PlaylistSong.PlaylistSongEntity;
+import com.musicApp.restAPI.persistance.PlaylistSong.PlaylistSongId;
 import com.musicApp.restAPI.persistance.PlaylistSong.PlaylistSongRepository;
 import com.musicApp.restAPI.persistance.Song.SongEntity;
 import com.musicApp.restAPI.persistance.Song.SongRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PlaylistService {
@@ -42,14 +45,20 @@ public class PlaylistService {
 
     // add song to playlist
     public void addSongToPlaylist(Long playlistId, Long songId) {
-        PlaylistEntity playlist = playlistRepository.findById(playlistId).orElseThrow();
-        SongEntity song = songRepository.findById(songId).orElseThrow();
+        Optional<PlaylistEntity> playlistOpt = playlistRepository.findById(playlistId);
+        Optional<SongEntity> songOpt = songRepository.findById(songId);
 
-        PlaylistSongEntity ps = new PlaylistSongEntity();
-        ps.setPlaylist(playlist);
-        ps.setSong(song);
+        if (playlistOpt.isPresent() && songOpt.isPresent()) {
+            PlaylistSongEntity playlistSong = new PlaylistSongEntity();
 
-        playlistSongRepository.save(ps);
+            PlaylistSongId id = new PlaylistSongId(playlistId, songId);
+
+            playlistSong.setId(id);
+            playlistSong.setPlaylist(playlistOpt.get());
+            playlistSong.setSong(songOpt.get());
+
+            playlistSongRepository.save(playlistSong);
+        }
     }
 
     // get songs from playlist

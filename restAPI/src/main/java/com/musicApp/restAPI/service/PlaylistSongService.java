@@ -34,6 +34,10 @@ public class PlaylistSongService {
 
         if (playlistOpt.isPresent() && songOpt.isPresent()) {
             PlaylistSongEntity playlistSong = new PlaylistSongEntity();
+
+            PlaylistSongId id = new PlaylistSongId(playlistId, songId);
+
+            playlistSong.setId(id);
             playlistSong.setPlaylist(playlistOpt.get());
             playlistSong.setSong(songOpt.get());
 
