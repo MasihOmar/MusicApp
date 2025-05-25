@@ -1,11 +1,18 @@
 package com.musicApp.restAPI.sql.resource;
 
+import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
 import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongEntity;
+import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
 import com.musicApp.restAPI.sql.service.PlaylistService;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 public class PlaylistController {
@@ -39,5 +46,12 @@ public class PlaylistController {
     @GetMapping("/playlists/{playlistId}/songs")
     public List<PlaylistSongEntity> getSongsFromPlaylist(@PathVariable Long playlistId) {
         return playlistService.getSongsFromPlaylist(playlistId);
+    }
+    
+    @GetMapping("/playlists/{playlistId}/optimize")
+    public List<SongEntity> optimizePlaylistOrder(
+            @PathVariable Long playlistId, 
+            @RequestParam(defaultValue = "shuffle") String type) {
+        return playlistService.optimizePlaylistOrder(playlistId, type);
     }
 }

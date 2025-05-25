@@ -1,12 +1,13 @@
 package com.musicApp.restAPI.sql.service;
 
-import com.musicApp.restAPI.sql.persistance.User.UserEntity;
-import com.musicApp.restAPI.sql.persistance.User.UserRepository;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
+import com.musicApp.restAPI.sql.persistance.User.UserEntity;
+import com.musicApp.restAPI.sql.persistance.User.UserRepository;
 
 @Service
 public class UserService {
@@ -30,12 +31,18 @@ public class UserService {
         return this.userRepository.findById(id).get();
     }
 
+    // find user by username (used for login)
+    public UserEntity findUserByUsername(String username) {
+        return this.userRepository.findByUsername(username)
+            .orElse(null);
+    }
+
     // add new user
-    public void addUser(UserEntity user){
+    public UserEntity addUser(UserEntity user){
         // hash the password
         user.setPassword_hash(passwordEncoder.encode(user.getPassword_hash()));
 
-        this.userRepository.save(user);
+        return this.userRepository.save(user);
     }
 
     // update user

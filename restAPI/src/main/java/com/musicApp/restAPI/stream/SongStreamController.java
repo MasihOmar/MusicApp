@@ -11,14 +11,14 @@ public class SongStreamController {
     @Autowired
     private SongStreamService songStreamService;
 
-    @GetMapping("/stream/song/{id}")
-    public ResponseEntity<Resource> streamSong(@PathVariable int id) {
+    @GetMapping("/stream/song/{filename:.+}")
+    public ResponseEntity<Resource> streamSong(@PathVariable String filename) {
         try {
-            Resource song = songStreamService.getSongFile(id);
+            Resource song = songStreamService.getSongFile(filename);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDisposition(ContentDisposition.attachment().filename(id + ".mp3").build());
+            headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
 
             return new ResponseEntity<>(song, headers, HttpStatus.OK);
         } catch (Exception e) {
@@ -26,14 +26,14 @@ public class SongStreamController {
         }
     }
 
-    @GetMapping("/stream/cover/{id}")
-    public ResponseEntity<Resource> streamCover(@PathVariable int id) {
+    @GetMapping("/stream/cover/{filename:.+}")
+    public ResponseEntity<Resource> streamCover(@PathVariable String filename) {
         try {
-            Resource cover = songStreamService.getCoverFile(id);
+            Resource cover = songStreamService.getCoverFile(filename);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.IMAGE_JPEG);
-            headers.setContentDisposition(ContentDisposition.inline().filename(id + ".jpeg").build());
+            headers.setContentDisposition(ContentDisposition.inline().filename(filename).build());
 
             return new ResponseEntity<>(cover, headers, HttpStatus.OK);
         } catch (Exception e) {

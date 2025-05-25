@@ -1,5 +1,13 @@
 package com.musicApp.restAPI.sql.service;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistRepository;
 import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongEntity;
@@ -7,10 +15,6 @@ import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongId;
 import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongRepository;
 import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
 import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class PlaylistService {
@@ -63,5 +67,43 @@ public class PlaylistService {
     // get songs from playlist
     public List<PlaylistSongEntity> getSongsFromPlaylist(Long playlistId) {
         return playlistSongRepository.findByPlaylistId(playlistId);
+    }
+    
+    // Playlist sorting algorithm
+    public List<SongEntity> optimizePlaylistOrder(Long playlistId, String optimizationType) {
+        List<PlaylistSongEntity> playlistSongs = playlistSongRepository.findByPlaylistId(playlistId);
+        List<SongEntity> songs = playlistSongs.stream()
+            .map(PlaylistSongEntity::getSong)
+            .collect(Collectors.toList());
+        
+        switch (optimizationType) {
+            case "tempo":
+                // Sort songs by tempo (ascending)
+                songs.sort(Comparator.comparingDouble(SongEntity::getTempo));
+                break;
+            case "year":
+                // Sort songs by release year
+                songs.sort(Comparator.comparingInt(SongEntity::getYear));
+                break;
+            case "energy":
+                // Sort songs by energy level for workout playlists
+                songs.sort(Comparator.comparingDouble(SongEntity::getEnergy).reversed());
+                break;
+            case "shuffle":
+                // Fisher-Yates shuffle algorithm
+                Random rand = new Random();
+                for (int i = songs.size() - 1; i > 0; i--) {
+                    int j = rand.nextInt(i + 1);
+                    SongEntity temp = songs.get(i);
+                    songs.set(i, songs.get(j));
+                    songs.set(j, temp);
+                }
+                break;
+            default:
+                // No sorting
+                break;
+        }
+        
+        return songs;
     }
 }
