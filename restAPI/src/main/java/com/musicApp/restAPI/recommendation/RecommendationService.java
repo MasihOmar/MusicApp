@@ -9,8 +9,11 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.musicApp.restAPI.model.UserSongInteraction;
+import com.musicApp.restAPI.repository.UserSongInteractionRepository;
 import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongRepository;
 import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
 import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
@@ -21,6 +24,9 @@ public class RecommendationService {
     private final SongRepository songRepository;
     private final PlaylistSongRepository playlistSongRepository;
     private final Random random = new Random();
+    
+    @Autowired
+    private UserSongInteractionRepository interactionRepository;
     
     // Matrix factorization parameters
     private static final int DEFAULT_LATENT_FACTORS = 10;
@@ -43,6 +49,9 @@ public class RecommendationService {
         // Get songs the user has listened to
         Set<Long> userSongs = userSongGraph.getOrDefault(userId, new HashSet<>());
         
+        // Get songs the user has skipped to penalize them in recommendations
+        Set<Long> skippedSongs = getSkippedSongs(userId);
+        
         // Calculate song scores using collaborative filtering
         Map<Long, Double> songScores = new HashMap<>();
         
@@ -64,7 +73,14 @@ public class RecommendationService {
             // Add score to songs this similar user listened to
             for (Long songId : otherUserSongs) {
                 if (!userSongs.contains(songId)) {
-                    songScores.put(songId, songScores.getOrDefault(songId, 0.0) + similarity);
+                    double score = similarity;
+                    
+                    // Penalize skipped songs
+                    if (skippedSongs.contains(songId)) {
+                        score *= 0.3; // Reduce score by 70% for skipped songs
+                    }
+                    
+                    songScores.put(songId, songScores.getOrDefault(songId, 0.0) + score);
                 }
             }
         }
@@ -87,6 +103,14 @@ public class RecommendationService {
         return recommendedSongs;
     }
     
+    // Get songs the user has skipped
+    private Set<Long> getSkippedSongs(Long userId) {
+        List<UserSongInteraction> skippedInteractions = interactionRepository.findBySkippedTrueAndUserId(userId);
+        return skippedInteractions.stream()
+            .map(UserSongInteraction::getSongId)
+            .collect(Collectors.toSet());
+    }
+    
     private Map<Long, Set<Long>> buildUserSongGraph() {
         // In a real implementation, you would use play history
         // This is a simplified example using playlist data
@@ -100,6 +124,17 @@ public class RecommendationService {
             
             userSongGraph.putIfAbsent(userId, new HashSet<>());
             userSongGraph.get(userId).add(songId);
+        });
+        
+        // Incorporate user interactions - songs listened to (not skipped)
+        interactionRepository.findAll().forEach(interaction -> {
+            if (interaction.isPlayed() && !interaction.isSkipped()) {
+                Long userId = interaction.getUserId();
+                Long songId = interaction.getSongId();
+                
+                userSongGraph.putIfAbsent(userId, new HashSet<>());
+                userSongGraph.get(userId).add(songId);
+            }
         });
         
         return userSongGraph;
@@ -187,6 +222,9 @@ public class RecommendationService {
             userSongs.addAll(ratingMatrix.get(userId).keySet());
         }
         
+        // Get songs the user has skipped to filter them out
+        Set<Long> skippedSongs = getSkippedSongs(userId);
+        
         // Make predictions for all songs the user hasn't interacted with
         for (int i = 0; i < numSongs; i++) {
             Long songId = indexToSongId.get(i);
@@ -199,6 +237,12 @@ public class RecommendationService {
             // Calculate predicted rating
             double predictedRating = predict(userIdx, i, userFactors, songFactors, 
                                             userBias, songBias, globalBias);
+            
+            // Apply penalty for skipped songs
+            if (skippedSongs.contains(songId)) {
+                predictedRating *= 0.3; // Reduce rating by 70%
+            }
+            
             predictions.put(songId, predictedRating);
         }
         
@@ -260,7 +304,56 @@ public class RecommendationService {
             ratingMatrix.get(userId).put(songId, 1.0); // User has this song in their playlist
         });
         
+        // Incorporate user interactions to adjust ratings
+        interactionRepository.findAll().forEach(interaction -> {
+            Long userId = interaction.getUserId();
+            Long songId = interaction.getSongId();
+            
+            if (!ratingMatrix.containsKey(userId)) {
+                ratingMatrix.put(userId, new HashMap<>());
+            }
+            
+            // Get existing rating or default to 0.5 (neutral)
+            double currentRating = ratingMatrix.get(userId).getOrDefault(songId, 0.5);
+            
+            // Adjust rating based on interactions
+            if (interaction.isSkipped()) {
+                // Decrease rating if skipped (more decrease for early skips)
+                double skipPenalty = calculateSkipPenalty(interaction);
+                currentRating -= skipPenalty;
+            }
+            
+            if (interaction.isCompleted()) {
+                // Increase rating if song was listened to completion
+                currentRating += 0.5;
+            }
+            
+            // Ensure rating stays in reasonable bounds
+            currentRating = Math.max(0.0, Math.min(currentRating, 5.0));
+            
+            // Update the rating
+            ratingMatrix.get(userId).put(songId, currentRating);
+        });
+        
         return ratingMatrix;
+    }
+    
+    // Helper method to calculate skip penalty
+    private double calculateSkipPenalty(UserSongInteraction interaction) {
+        // Early skips (first 20%) are penalized more
+        int skipPositionMs = interaction.getSkipPositionMs();
+        int totalDurationMs = interaction.getSongDurationMs();
+        
+        if (totalDurationMs == 0) return 0.5; // Default penalty
+        
+        double percentListened = (double) skipPositionMs / totalDurationMs;
+        if (percentListened < 0.2) {
+            return 0.7; // Strong penalty for early skips
+        } else if (percentListened < 0.5) {
+            return 0.4; // Medium penalty
+        } else {
+            return 0.2; // Lower penalty for late skips (user heard most of song)
+        }
     }
     
     // Get all user IDs from the user-song interactions
@@ -269,6 +362,11 @@ public class RecommendationService {
         
         playlistSongRepository.findAll().forEach(playlistSong -> {
             userIds.add(playlistSong.getPlaylist().getUserId());
+        });
+        
+        // Add users from interaction data
+        interactionRepository.findAll().forEach(interaction -> {
+            userIds.add(interaction.getUserId());
         });
         
         return new ArrayList<>(userIds);

@@ -50,10 +50,14 @@ const PlaylistModal = ({ visible, onClose, songId, onSuccess }) => {
     
     setAddingToPlaylist(true);
     try {
-      await playlistService.addSongToPlaylist(playlistId, songId);
-      onSuccess?.();
-      onClose();
+      // Add song to playlist and get updated playlist data
+      const updatedPlaylist = await playlistService.addSongToPlaylist(playlistId, songId);
+      console.log('Updated playlist after adding song:', updatedPlaylist);
+      
+      // Call onSuccess with the updated playlist data
+      onSuccess?.(updatedPlaylist);
       Alert.alert('Success', 'Song added to playlist successfully');
+      onClose();
     } catch (err) {
       console.error('Error adding song to playlist:', err);
       Alert.alert('Error', 'Failed to add song to playlist. Please try again.');

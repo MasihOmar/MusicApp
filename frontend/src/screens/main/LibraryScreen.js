@@ -1,5 +1,5 @@
 // src/screens/main/LibraryScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   Image,
   FlatList,
   StatusBar,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import Colors from '../../constants/colors';
 import { playlistService, streamService } from '../../services/api';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LibraryScreen({ navigation }) {
   const { user } = useAuth();
@@ -28,13 +30,27 @@ export default function LibraryScreen({ navigation }) {
   const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'U';
 
   // Fetch data based on active filter
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (activeFilter === 'playlists') {
-      fetchPlaylists();
+      await fetchPlaylists();
     } else if (activeFilter === 'artists') {
-      fetchArtists();
+      await fetchArtists();
     }
   }, [activeFilter]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Add focus listener to refresh data when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchData();
+    });
+
+    return unsubscribe;
+  }, [navigation, fetchData]);
 
   const fetchPlaylists = async () => {
     if (activeFilter !== 'playlists') return;
@@ -43,7 +59,27 @@ export default function LibraryScreen({ navigation }) {
     setError(null);
     try {
       const playlistsData = await playlistService.getAllPlaylists();
-      setPlaylists(playlistsData || []);
+      
+      // Fetch song counts for each playlist
+      const playlistsWithSongs = await Promise.all(
+        playlistsData.map(async (playlist) => {
+          try {
+            const songs = await playlistService.getPlaylistSongs(playlist.id);
+            return {
+              ...playlist,
+              songCount: songs ? songs.length : 0
+            };
+          } catch (err) {
+            console.error(`Error fetching songs for playlist ${playlist.id}:`, err);
+            return {
+              ...playlist,
+              songCount: 0
+            };
+          }
+        })
+      );
+      
+      setPlaylists(playlistsWithSongs || []);
     } catch (err) {
       console.error('Error fetching playlists:', err);
       setError('Failed to load playlists. Please try again.');
@@ -93,6 +129,33 @@ export default function LibraryScreen({ navigation }) {
     { id: 'downloads', name: 'İndirilenler' },
   ];
 
+  const handleDeletePlaylist = async (playlistId, playlistName) => {
+    Alert.alert(
+      'Delete Playlist',
+      `Are you sure you want to delete "${playlistName}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await playlistService.deletePlaylist(playlistId);
+              // Refresh the playlists list
+              fetchPlaylists();
+            } catch (err) {
+              console.error('Error deleting playlist:', err);
+              Alert.alert('Error', 'Failed to delete playlist. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderPlaylistItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.playlistItem}
@@ -112,9 +175,15 @@ export default function LibraryScreen({ navigation }) {
         <View style={styles.playlistInfo}>
           <Text style={styles.playlistTitle}>{item.title || item.name}</Text>
           <Text style={styles.playlistTracks}>
-            {`Çalma Listesi • ${item.trackCount || item.songCount || 0} şarkı`}
+            {`Çalma Listesi • ${item.songCount || 0} şarkı`}
           </Text>
         </View>
+        <TouchableOpacity 
+          style={styles.deleteButton}
+          onPress={() => handleDeletePlaylist(item.id, item.title || item.name)}
+        >
+          <Ionicons name="trash-outline" size={24} color={Colors.error || '#ff6b6b'} />
+        </TouchableOpacity>
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -508,5 +577,9 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  deleteButton: {
+    padding: 8,
+    marginLeft: 8,
   },
 });

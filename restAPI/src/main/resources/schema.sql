@@ -1,26 +1,23 @@
 -- Drop tables if they exist
-IF OBJECT_ID('playlist_songs', 'U') IS NOT NULL
-    DROP TABLE playlist_songs;
-IF OBJECT_ID('playlists', 'U') IS NOT NULL
-    DROP TABLE playlists;
-IF OBJECT_ID('songs', 'U') IS NOT NULL
-    DROP TABLE songs;
-IF OBJECT_ID('users', 'U') IS NOT NULL
-    DROP TABLE users;
+DROP TABLE IF EXISTS playlist_songs;
+DROP TABLE IF EXISTS playlists;
+DROP TABLE IF EXISTS user_song_interactions;
+DROP TABLE IF EXISTS songs;
+DROP TABLE IF EXISTS users;
 
 -- Create users table
 CREATE TABLE users (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    username NVARCHAR(255),
-    password_hash NVARCHAR(255)
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255),
+    password_hash VARCHAR(255)
 );
 
 -- Create songs table
 CREATE TABLE songs (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    title NVARCHAR(255),
-    artist NVARCHAR(255),
-    genre NVARCHAR(255),
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255),
+    artist VARCHAR(255),
+    genre VARCHAR(255),
     release_year INT,
     tempo FLOAT,
     energy FLOAT,
@@ -30,8 +27,8 @@ CREATE TABLE songs (
 
 -- Create playlists table
 CREATE TABLE playlists (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(255),
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
     user_id BIGINT REFERENCES users(id)
 );
 
@@ -41,5 +38,21 @@ CREATE TABLE playlist_songs (
     song_id BIGINT,
     PRIMARY KEY (playlist_id, song_id),
     FOREIGN KEY (playlist_id) REFERENCES playlists(id),
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+);
+
+-- Create user_song_interactions table
+CREATE TABLE user_song_interactions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    song_id BIGINT,
+    played BOOLEAN DEFAULT FALSE,
+    completed BOOLEAN DEFAULT FALSE,
+    skipped BOOLEAN DEFAULT FALSE,
+    skip_position_ms INT DEFAULT 0,
+    listen_duration_ms INT DEFAULT 0,
+    song_duration_ms INT DEFAULT 0,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
 ); 

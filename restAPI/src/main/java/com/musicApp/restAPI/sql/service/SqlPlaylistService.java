@@ -7,6 +7,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistRepository;
@@ -16,14 +17,14 @@ import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongRepository;
 import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
 import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
 
-@Service
-public class PlaylistService {
+@Service("sqlPlaylistService")
+public class SqlPlaylistService {
 
     private final PlaylistRepository playlistRepository;
     private final PlaylistSongRepository playlistSongRepository;
     private final SongRepository songRepository;
 
-    public PlaylistService(PlaylistRepository playlistRepository,
+    public SqlPlaylistService(PlaylistRepository playlistRepository,
                            PlaylistSongRepository playlistSongRepository,
                            SongRepository songRepository) {
         this.playlistRepository = playlistRepository;
@@ -67,6 +68,17 @@ public class PlaylistService {
     // get songs from playlist
     public List<PlaylistSongEntity> getSongsFromPlaylist(Long playlistId) {
         return playlistSongRepository.findByPlaylistId(playlistId);
+    }
+    
+    // delete playlist
+    @Transactional
+    public void deletePlaylist(Long id) {
+        // Delete all songs from playlist
+        List<PlaylistSongEntity> songs = playlistSongRepository.findByPlaylistId(id);
+        playlistSongRepository.deleteAll(songs);
+        
+        // Delete the playlist
+        playlistRepository.deleteById(id);
     }
     
     // Playlist sorting algorithm

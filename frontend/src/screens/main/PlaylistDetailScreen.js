@@ -1,5 +1,5 @@
 // src/screens/main/PlaylistDetailScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,103 +15,89 @@ import Colors from '../../constants/colors';
 import { playlistService, streamService, songService, checkServerReachability } from '../../services/api';
 import NetworkStatus from '../../components/NetworkStatus';
 import SongCard from '../../components/SongCard';
+import SongOptionsModal from '../../components/SongOptionsModal';
 
 export default function PlaylistDetailScreen({ navigation, route }) {
+  const { id: playlistId } = route.params;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [playlist, setPlaylist] = useState(null);
-  const [playlistSongs, setPlaylistSongs] = useState([]);
+  const [songs, setSongs] = useState([]);
   const [retryCount, setRetryCount] = useState(0);
   const [showNetworkError, setShowNetworkError] = useState(false);
   const [selectedSong, setSelectedSong] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const maxRetries = 3;
   
-  // Get playlist ID from route params
-  const playlistId = route?.params?.id;
-  
-  // Reference to the fetchPlaylistData function for retry mechanism
-  const fetchPlaylistData = async () => {
-    if (!playlistId) return;
-    
+  const fetchPlaylistData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     setShowNetworkError(false);
-    
     try {
-      // Check if server is reachable first
-      const isReachable = await checkServerReachability();
-      
-      if (!isReachable) {
-        setShowNetworkError(true);
-        setIsLoading(false);
-        setError('Server not reachable');
-        return;
-      }
-      
-      // Fetch both playlist details and songs
-      const [playlistData, playlistSongsData] = await Promise.all([
-        playlistService.getPlaylistById(playlistId),
-        playlistService.getPlaylistSongs(playlistId)
-      ]);
-      
+      // Fetch playlist details
+      const playlistData = await playlistService.getPlaylist(playlistId);
       setPlaylist(playlistData);
 
-      // In case we only get IDs instead of full song objects
-      if (playlistSongsData && playlistSongsData.length > 0 && playlistSongsData[0].song_id) {
-        // Fetch each song's details
-        const songDetailsPromises = playlistSongsData.map(item => 
-          songService.getSongById(item.song_id)
+      // Fetch playlist songs
+      const playlistSongs = await playlistService.getPlaylistSongs(playlistId);
+      console.log('Fetched playlist songs:', playlistSongs);
+
+      if (playlistSongs && playlistSongs.length > 0) {
+        // Fetch full song details for each song
+        const songDetails = await Promise.all(
+          playlistSongs.map(async (song) => {
+            try {
+              const songData = await songService.getSongById(song.id);
+              return songData;
+            } catch (err) {
+              console.error(`Error fetching song ${song.id}:`, err);
+              return null;
+            }
+          })
         );
-        
-        const songDetails = await Promise.all(songDetailsPromises);
-        setPlaylistSongs(songDetails.filter(song => song && song.id));
+
+        // Filter out any null values and set the songs
+        const validSongs = songDetails.filter(song => song !== null);
+        console.log('Valid songs:', validSongs);
+        setSongs(validSongs);
       } else {
-        setPlaylistSongs(playlistSongsData || []);
+        setSongs([]);
       }
-      
-      setRetryCount(0); // Reset retry count on success
     } catch (err) {
       console.error('Error fetching playlist data:', err);
-      
-      // Check if this is a network error
-      if (err.message && (
-          err.message.includes('Network request failed') || 
-          err.message.includes('timed out') ||
-          err.message.includes('Server not reachable')
-        )) {
-        setShowNetworkError(true);
-      }
-      
       setError('Failed to load playlist. Please try again.');
+      
+      // Implement retry logic
+      if (retryCount < maxRetries) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [playlistId, retryCount]);
   
-  // Fetch playlist details and songs
+  // Initial fetch
   useEffect(() => {
     fetchPlaylistData();
-  }, [playlistId]);
+  }, [fetchPlaylistData]);
   
-  // Auto-retry mechanism for network issues
+  // Add focus listener to refresh data when screen comes into focus
   useEffect(() => {
-    if (error && error.includes('Network') && retryCount < 3) {
-      const timer = setTimeout(() => {
-        console.log(`Auto-retrying fetch (attempt ${retryCount + 1})...`);
-        setRetryCount(prev => prev + 1);
-        fetchPlaylistData();
-      }, 3000); // Retry after 3 seconds
-      
-      return () => clearTimeout(timer);
-    }
-  }, [error, retryCount]);
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchPlaylistData();
+    });
+
+    return unsubscribe;
+  }, [navigation, fetchPlaylistData]);
   
   // Default placeholder for cover art
   const placeholderImage = streamService.getDefaultCoverArt();
   
   const handlePlayAll = () => {
-    if (playlistSongs.length > 0) {
-      navigation.navigate('Player', { songId: playlistSongs[0].id });
+    if (songs.length > 0) {
+      navigation.navigate('Player', { songId: songs[0].id });
     }
   };
   
@@ -122,6 +108,18 @@ export default function PlaylistDetailScreen({ navigation, route }) {
   // Handle network retry
   const handleNetworkRetry = () => {
     setShowNetworkError(false);
+    fetchPlaylistData();
+  };
+  
+  // Handle song options modal
+  const handleSongOptions = (song) => {
+    setSelectedSong(song);
+    setOptionsModalVisible(true);
+  };
+  
+  // Handle song added to playlist
+  const handleSongAdded = (updatedPlaylist) => {
+    console.log('Song added to playlist, updating data...');
     fetchPlaylistData();
   };
   
@@ -203,7 +201,7 @@ export default function PlaylistDetailScreen({ navigation, route }) {
             <Text style={styles.playlistTitle}>{playlist.name}</Text>
             
             <View style={styles.playlistStats}>
-              <Text style={styles.playlistSongCount}>{`${playlistSongs.length} songs`}</Text>
+              <Text style={styles.playlistSongCount}>{`${songs.length} songs`}</Text>
             </View>
           </View>
         </View>
@@ -212,7 +210,7 @@ export default function PlaylistDetailScreen({ navigation, route }) {
           <TouchableOpacity 
             style={styles.playAllButton} 
             onPress={handlePlayAll}
-            disabled={playlistSongs.length === 0}
+            disabled={songs.length === 0}
           >
             <LinearGradient
               colors={Colors.gradient.primary}
@@ -225,10 +223,10 @@ export default function PlaylistDetailScreen({ navigation, route }) {
       </LinearGradient>
       
       <View style={styles.songsContainer}>
-        <Text style={styles.songsTitle}>{`${playlistSongs.length} Songs`}</Text>
+        <Text style={styles.songsTitle}>{`${songs.length} Songs`}</Text>
         
         <FlatList
-          data={playlistSongs}
+          data={songs}
           renderItem={renderSongItem}
           keyExtractor={(item, index) => `song-${item.id || index}`}
           showsVerticalScrollIndicator={false}
@@ -240,6 +238,13 @@ export default function PlaylistDetailScreen({ navigation, route }) {
           }
         />
       </View>
+      
+      <SongOptionsModal
+        visible={optionsModalVisible}
+        onClose={() => setOptionsModalVisible(false)}
+        song={selectedSong}
+        onSuccess={handleSongAdded}
+      />
     </View>
   );
 }

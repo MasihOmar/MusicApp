@@ -58,13 +58,16 @@ export const AuthProvider = ({ children }) => {
       console.log('Login response:', response);
       
       if (response && response.token) {
+        console.log('Storing token and user data...');
         await AsyncStorage.setItem('userToken', response.token);
         // Store the user ID for future reference
         if (response.user && response.user.id) {
           await AsyncStorage.setItem('userId', response.user.id.toString());
         }
+        console.log('Setting userToken and user state...');
         setUserToken(response.token);
         setUser(response.user);
+        console.log('Login successful, navigation should update automatically');
       } else {
         throw new Error('Login failed: Invalid response from server');
       }

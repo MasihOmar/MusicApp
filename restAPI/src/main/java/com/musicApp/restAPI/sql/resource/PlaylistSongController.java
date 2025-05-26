@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@RestController
+@RestController("sqlPlaylistSongController")
 public class PlaylistSongController {
 
     private final PlaylistSongService playlistSongService;
@@ -18,26 +18,26 @@ public class PlaylistSongController {
     }
 
     // add songs to playlist
-    @PostMapping("/playlist-songs/add/playlist/{playlistId}/song/{songId}")
+    @PostMapping("/sql/playlist-songs/add/playlist/{playlistId}/song/{songId}")
     public void addSongToPlaylist(@PathVariable Long playlistId, @PathVariable Long songId) {
         playlistSongService.addSongToPlaylist(playlistId, songId);
     }
 
     // get songs by playlist
-    @GetMapping("/playlist-songs/get/playlist/{playlistId}")
+    @GetMapping("/sql/playlist-songs/get/playlist/{playlistId}")
     public List<PlaylistSongEntity> getSongsByPlaylist(@PathVariable Long playlistId) {
         return playlistSongService.getSongsByPlaylistId(playlistId);
     }
 
     // delete song from playlist
-    @DeleteMapping("/playlist-songs/delete/playlist/{playlistId}/song/{songId}")
+    @DeleteMapping("/sql/playlist-songs/delete/playlist/{playlistId}/song/{songId}")
     public void deleteSongFromPlaylist(@PathVariable Long playlistId, @PathVariable Long songId) {
         PlaylistSongId playlistSongId = new PlaylistSongId(playlistId, songId);
         playlistSongService.deleteSongFromPlaylist(playlistSongId);
     }
 
     // get song by id
-    @GetMapping("/playlist-songs/get/playlist/{playlistId}/song/{songId}")
+    @GetMapping("/sql/playlist-songs/get/playlist/{playlistId}/song/{songId}")
     public Optional<PlaylistSongEntity> findSongById(@PathVariable Long playlistId, @PathVariable Long songId) {
         PlaylistSongId playlistSongId = new PlaylistSongId(playlistId, songId);
         return playlistSongService.findSongById(playlistSongId);
