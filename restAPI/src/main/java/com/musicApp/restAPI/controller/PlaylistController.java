@@ -235,4 +235,24 @@ public class PlaylistController {
             return ResponseEntity.badRequest().body(error);
         }
     }
+    
+    // Reorder songs in playlist
+    @PutMapping("/{id}/reorder")
+    public ResponseEntity<?> reorderSongs(@PathVariable Long id, @RequestBody List<Long> songIds) {
+        try {
+            boolean reordered = playlistService.reorderSongs(id, songIds);
+            if (!reordered) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Failed to reorder songs in playlist");
+                return ResponseEntity.badRequest().body(error);
+            }
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Songs reordered successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Failed to reorder songs: " + e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
 } 

@@ -22,10 +22,12 @@ const PlaylistCoverArt = ({ songs, size = 180, circular = true }) => {
 
   if (!songs || songs.length === 0) {
     return (
-      <Image
-        source={{ uri: streamService.getDefaultCoverArt() }}
-        style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}
-      />
+      <View style={styles.centered}>
+        <Image
+          source={{ uri: streamService.getDefaultCoverArt() }}
+          style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}
+        />
+      </View>
     );
   }
 
@@ -33,74 +35,84 @@ const PlaylistCoverArt = ({ songs, size = 180, circular = true }) => {
     switch (coverArtUrls.length) {
       case 1:
         return (
-          <Image
-            source={{ uri: coverArtUrls[0] }}
-            style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}
-          />
+          <View style={styles.centered}>
+            <Image
+              source={{ uri: coverArtUrls[0] }}
+              style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}
+            />
+          </View>
         );
       case 2:
         return (
-          <View style={{ width: size, height: size, borderRadius, overflow: 'hidden', flexDirection: 'column' }}>
-            <Image
-              source={{ uri: coverArtUrls[0] }}
-              style={{ width: size, height: size / 2, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius }}
-            />
-            <Image
-              source={{ uri: coverArtUrls[1] }}
-              style={{ width: size, height: size / 2, borderBottomLeftRadius: borderRadius, borderBottomRightRadius: borderRadius }}
-            />
+          <View style={styles.centered}>
+            <View style={{ width: size, height: size, borderRadius, overflow: 'hidden', flexDirection: 'column' }}>
+              <Image
+                source={{ uri: coverArtUrls[0] }}
+                style={{ width: size, height: size / 2, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius }}
+              />
+              <Image
+                source={{ uri: coverArtUrls[1] }}
+                style={{ width: size, height: size / 2, borderBottomLeftRadius: borderRadius, borderBottomRightRadius: borderRadius }}
+              />
+            </View>
           </View>
         );
       case 3:
         return (
-          <View style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}>
-            <Image
-              source={{ uri: coverArtUrls[0] }}
-              style={{ width: size, height: size / 2, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius }}
-            />
-            <View style={{ flexDirection: 'row', width: size, height: size / 2 }}>
+          <View style={styles.centered}>
+            <View style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}>
               <Image
-                source={{ uri: coverArtUrls[1] }}
-                style={{ width: size / 2, height: size / 2, borderBottomLeftRadius: borderRadius }}
+                source={{ uri: coverArtUrls[0] }}
+                style={{ width: size, height: size / 2, borderTopLeftRadius: borderRadius, borderTopRightRadius: borderRadius }}
               />
-              <Image
-                source={{ uri: coverArtUrls[2] }}
-                style={{ width: size / 2, height: size / 2, borderBottomRightRadius: borderRadius }}
-              />
+              <View style={{ flexDirection: 'row', width: size, height: size / 2 }}>
+                <Image
+                  source={{ uri: coverArtUrls[1] }}
+                  style={{ width: size / 2, height: size / 2, borderBottomLeftRadius: borderRadius }}
+                />
+                <Image
+                  source={{ uri: coverArtUrls[2] }}
+                  style={{ width: size / 2, height: size / 2, borderBottomRightRadius: borderRadius }}
+                />
+              </View>
             </View>
           </View>
         );
       case 4:
         return (
-          <View style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}>
-            <View style={{ flexDirection: 'row', width: size, height: size / 2 }}>
-              <Image
-                source={{ uri: coverArtUrls[0] }}
-                style={{ width: size / 2, height: size / 2, borderTopLeftRadius: borderRadius }}
-              />
-              <Image
-                source={{ uri: coverArtUrls[1] }}
-                style={{ width: size / 2, height: size / 2, borderTopRightRadius: borderRadius }}
-              />
-            </View>
-            <View style={{ flexDirection: 'row', width: size, height: size / 2 }}>
-              <Image
-                source={{ uri: coverArtUrls[2] }}
-                style={{ width: size / 2, height: size / 2, borderBottomLeftRadius: borderRadius }}
-              />
-              <Image
-                source={{ uri: coverArtUrls[3] }}
-                style={{ width: size / 2, height: size / 2, borderBottomRightRadius: borderRadius }}
-              />
+          <View style={styles.centered}>
+            <View style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}>
+              <View style={{ flexDirection: 'row', width: size, height: size / 2 }}>
+                <Image
+                  source={{ uri: coverArtUrls[0] }}
+                  style={{ width: size / 2, height: size / 2, borderTopLeftRadius: borderRadius }}
+                />
+                <Image
+                  source={{ uri: coverArtUrls[1] }}
+                  style={{ width: size / 2, height: size / 2, borderTopRightRadius: borderRadius }}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', width: size, height: size / 2 }}>
+                <Image
+                  source={{ uri: coverArtUrls[2] }}
+                  style={{ width: size / 2, height: size / 2, borderBottomLeftRadius: borderRadius }}
+                />
+                <Image
+                  source={{ uri: coverArtUrls[3] }}
+                  style={{ width: size / 2, height: size / 2, borderBottomRightRadius: borderRadius }}
+                />
+              </View>
             </View>
           </View>
         );
       default:
         return (
-          <Image
-            source={{ uri: streamService.getDefaultCoverArt() }}
-            style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}
-          />
+          <View style={styles.centered}>
+            <Image
+              source={{ uri: streamService.getDefaultCoverArt() }}
+              style={{ width: size, height: size, borderRadius, overflow: 'hidden' }}
+            />
+          </View>
         );
     }
   };
@@ -109,6 +121,11 @@ const PlaylistCoverArt = ({ songs, size = 180, circular = true }) => {
 };
 
 const styles = StyleSheet.create({
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
   container: {
     borderRadius: 8,
     overflow: 'hidden',

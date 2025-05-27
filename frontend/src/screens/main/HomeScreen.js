@@ -22,10 +22,12 @@ import SongOptionsModal from '../../components/SongOptionsModal';
 import SongCard from '../../components/SongCard';
 import PlaylistCoverArt from '../../components/PlaylistCoverArt';
 import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [songs, setSongs] = useState([]);
@@ -35,6 +37,9 @@ export default function HomeScreen({ navigation }) {
   const [matrixRecommendations, setMatrixRecommendations] = useState([]);
   const [userId, setUserId] = useState(null);
   const [recentSongs, setRecentSongs] = useState([]);
+
+  // Get user's display initial
+  const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'U';
 
   // Add useFocusEffect to refresh data when screen comes into focus
   useFocusEffect(
@@ -476,14 +481,6 @@ export default function HomeScreen({ navigation }) {
 
   // Render playlist item - using API data
   const renderPlaylistItem = ({ item }) => {
-    console.log('HomeScreen Playlist:', item);
-    if (item.songs) {
-      item.songs.forEach((song, idx) => {
-        console.log(`  Song ${idx}:`, song.fileName || song.file_name, song);
-      });
-    } else {
-      console.log('  No songs in this playlist');
-    }
     return (
       <TouchableOpacity 
         style={styles.featuredItem}
@@ -566,7 +563,7 @@ export default function HomeScreen({ navigation }) {
             colors={Colors.gradient.primary}
             style={styles.profileGradient}
           >
-            <Text style={styles.profileLetter}>K</Text>
+            <Text style={styles.profileLetter}>{userInitial}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
@@ -602,7 +599,6 @@ export default function HomeScreen({ navigation }) {
         {playlists && playlists.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Çalma Listeleri</Text>
-            {console.log('Rendering playlists:', playlists)}
             <FlatList
               data={playlists}
               renderItem={renderPlaylistItem}
@@ -610,7 +606,7 @@ export default function HomeScreen({ navigation }) {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.horizontalList}
-              contentContainerStyle={styles.horizontalListContent}
+              contentContainerStyle={styles.featuredListContainer}
             />
           </View>
         )}
@@ -686,6 +682,7 @@ export default function HomeScreen({ navigation }) {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.featuredListContainer}
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
           />
         </View>
       </Animated.ScrollView>
@@ -841,14 +838,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   featuredItem: {
-    width: width * 0.7,
-    marginRight: 2,
+    width: width * 0.6,
+    marginRight: 8,
     borderRadius: 12,
     overflow: 'hidden',
   },
   featuredImageContainer: {
     width: '100%',
-    height: 180,
+    height: 160,
     position: 'relative',
   },
   featuredGradient: {
@@ -864,18 +861,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 15,
+    padding: 12,
     zIndex: 2,
   },
   featuredTitle: {
     color: Colors.textPrimary,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   featuredDescription: {
     color: Colors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
   },
   continueListContainer: {
     paddingRight: 16,
@@ -935,8 +932,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   featuredListContainer: {
-    paddingRight: 0,
-    marginRight: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
   },
   lastSection: {
     paddingBottom: 40,

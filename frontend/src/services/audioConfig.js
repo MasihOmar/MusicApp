@@ -8,8 +8,8 @@ export const configureAudioSession = async () => {
       playsInSilentModeIOS: true,
       shouldDuckAndroid: true,
       playThroughEarpieceAndroid: false,
-      interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-      interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+      interruptionModeIOS: Audio.InterruptionModeIOS.DoNotMix,
+      interruptionModeAndroid: Audio.InterruptionModeAndroid.DoNotMix,
     });
     console.log('Audio session configured successfully');
   } catch (error) {

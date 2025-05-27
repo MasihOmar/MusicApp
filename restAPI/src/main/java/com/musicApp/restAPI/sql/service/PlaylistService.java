@@ -3,8 +3,11 @@ package com.musicApp.restAPI.sql.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.musicApp.restAPI.datastructures.linkedlist.PlaylistLinkedListService;
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistRepository;
 import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
@@ -15,10 +18,16 @@ public class PlaylistService {
 
     private final PlaylistRepository playlistRepository;
     private final SongRepository songRepository;
+    private final PlaylistLinkedListService playlistLinkedListService;
 
-    public PlaylistService(PlaylistRepository playlistRepository, SongRepository songRepository) {
+    @Autowired
+    public PlaylistService(
+            PlaylistRepository playlistRepository,
+            SongRepository songRepository,
+            PlaylistLinkedListService playlistLinkedListService) {
         this.playlistRepository = playlistRepository;
         this.songRepository = songRepository;
+        this.playlistLinkedListService = playlistLinkedListService;
     }
 
     // Get all playlists
@@ -32,11 +41,13 @@ public class PlaylistService {
     }
 
     // Create new playlist
+    @Transactional
     public PlaylistEntity createPlaylist(PlaylistEntity playlist) {
         return playlistRepository.save(playlist);
     }
 
     // Delete playlist
+    @Transactional
     public boolean deletePlaylist(Long id) {
         Optional<PlaylistEntity> playlist = playlistRepository.findById(id);
         if (playlist.isPresent()) {
@@ -52,30 +63,41 @@ public class PlaylistService {
         if (playlist == null) {
             return null;
         }
-        return playlist.getSongs();
+        return playlistLinkedListService.getPlaylistSongs(playlist);
     }
 
     // Add song to playlist
+    @Transactional
     public boolean addSongToPlaylist(Long playlistId, Long songId) {
         PlaylistEntity playlist = playlistRepository.findById(playlistId).orElse(null);
         SongEntity song = songRepository.findById(songId).orElse(null);
         
         if (playlist != null && song != null) {
-            playlist.addSong(song);
-            playlistRepository.save(playlist);
+            playlistLinkedListService.addSongToPlaylist(playlist, song);
             return true;
         }
         return false;
     }
 
     // Remove song from playlist
+    @Transactional
     public boolean removeSongFromPlaylist(Long playlistId, Long songId) {
         PlaylistEntity playlist = playlistRepository.findById(playlistId).orElse(null);
         SongEntity song = songRepository.findById(songId).orElse(null);
         
         if (playlist != null && song != null) {
-            playlist.getSongs().remove(song);
-            playlistRepository.save(playlist);
+            playlistLinkedListService.removeSongFromPlaylist(playlist, song);
+            return true;
+        }
+        return false;
+    }
+
+    // Reorder songs in playlist
+    @Transactional
+    public boolean reorderSongs(Long playlistId, List<Long> songIds) {
+        PlaylistEntity playlist = playlistRepository.findById(playlistId).orElse(null);
+        if (playlist != null) {
+            playlistLinkedListService.reorderSongs(playlist, songIds);
             return true;
         }
         return false;

@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import { userService } from '../../services/api';
 import Colors from '../../constants/colors';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
@@ -112,20 +113,23 @@ export default function ProfileScreen({ navigation }) {
       colors={[Colors.backgroundDark, Colors.background]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 0.6 }}
-      style={styles.gradientContainer}
+      style={styles.container}
     >
       <StatusBar barStyle="light-content" />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
-        
+      
+      {/* Header with back button */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerRight} />
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.profileSection}>
           <LinearGradient
             colors={Colors.gradient.primary}
@@ -259,34 +263,30 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  gradientContainer: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    position: 'relative',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.textPrimary,
   },
-  backButton: {
-    position: 'absolute',
-    left: 16,
-    padding: 10,
-  },
-  backButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 24,
+  headerRight: {
+    width: 40, // To balance the back button
   },
   profileSection: {
     alignItems: 'center',

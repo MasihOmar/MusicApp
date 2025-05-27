@@ -15,9 +15,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import Colors from '../../constants/colors';
-import { playlistService, streamService } from '../../services/api';
+import { playlistService, streamService, songService } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import PlaylistCoverArt from '../../components/PlaylistCoverArt';
+import ArtistCard from '../../components/ArtistCard';
 
 export default function LibraryScreen({ navigation }) {
   const { user } = useAuth();
@@ -97,26 +98,49 @@ export default function LibraryScreen({ navigation }) {
     setIsLoading(true);
     setError(null);
     try {
-      // Get artists from playlists if available
-      const playlistsData = await playlistService.getAllPlaylists();
+      // Get all songs to extract unique artists
+      const songs = await songService.getAllSongs();
       
-      // Extract unique artists from playlists
+      // Extract unique artists from songs
       const artistMap = {};
-      playlistsData.forEach(playlist => {
-        if (playlist.songs) {
-          playlist.songs.forEach(song => {
-            if (song.artist && !artistMap[song.artist]) {
-              artistMap[song.artist] = {
-                id: song.id,
-                name: song.artist,
-                cover: streamService.getCoverArtUrl(song.file_name)
-              };
-            }
-          });
-        }
-      });
+      let processedCount = 0;
+      const BATCH_SIZE = 20; // Process 20 songs at a time
       
-      setArtists(Object.values(artistMap));
+      // Process songs in batches
+      for (let i = 0; i < songs.length; i += BATCH_SIZE) {
+        const batch = songs.slice(i, i + BATCH_SIZE);
+        
+        // Process each song in the batch
+        batch.forEach(song => {
+          if (song.artist) {
+            const artistName = song.artist.trim();
+            if (artistName && !artistMap[artistName]) {
+              // Only get cover URL for the first song of each artist
+              const coverUrl = streamService.getCoverArtUrl(song);
+              artistMap[artistName] = {
+                id: song.id,
+                name: artistName,
+                cover: coverUrl,
+                songCount: 1
+              };
+            } else if (artistName) {
+              // Just increment count for existing artists
+              artistMap[artistName].songCount++;
+            }
+          }
+        });
+        
+        processedCount += batch.length;
+        
+        // Update state with current progress
+        const currentArtists = Object.values(artistMap);
+        setArtists(currentArtists);
+        
+        // Add a small delay between batches
+        if (i + BATCH_SIZE < songs.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
     } catch (err) {
       console.error('Error fetching artists:', err);
       setError('Failed to load artists. Please try again.');
@@ -128,8 +152,7 @@ export default function LibraryScreen({ navigation }) {
   const filterOptions = [
     { id: 'playlists', name: 'Çalma Listeleri' },
     { id: 'artists', name: 'Sanatçılar' },
-    { id: 'albums', name: 'Albümler' },
-    { id: 'downloads', name: 'İndirilenler' },
+    { id: 'albums', name: 'Albümler' }
   ];
 
   const handleDeletePlaylist = async (playlistId, playlistName) => {
@@ -192,29 +215,19 @@ export default function LibraryScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  const renderArtistItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.artistItem}
-      onPress={() => navigation.navigate('ArtistDetail', { id: item.id })}
-    >
-      <LinearGradient
-        colors={Colors.gradient.cardHighlight}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.artistGradient}
-      >
-        <Image 
-          source={{ uri: streamService.getCoverArtUrl(item.file_name) }} 
-          style={styles.artistCover}
-          defaultSource={{ uri: streamService.getDefaultCoverArt() }}
-        />
-        <View style={styles.artistInfo}>
-          <Text style={styles.artistName}>{item.name}</Text>
-          <Text style={styles.artistType}>Sanatçı</Text>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+  const renderArtistItem = ({ item }) => {
+    if (!item || !item.name) {
+      console.error('Invalid artist item:', item);
+      return null;
+    }
+    
+    return (
+      <ArtistCard
+        artist={item}
+        onPress={() => navigation.navigate('ArtistProfile', { artistName: item.name })}
+      />
+    );
+  };
 
   const renderFilterButton = ({ item }) => (
     <TouchableOpacity 
@@ -290,20 +303,7 @@ export default function LibraryScreen({ navigation }) {
     >
       <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={() => navigation.navigate('Profile')}
-          >
-            <LinearGradient
-              colors={Colors.gradient.primary}
-              style={styles.profileGradient}
-            >
-              <Text style={styles.profileLetter}>{userInitial}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Kütüphanen</Text>
-        </View>
+        <Text style={styles.headerTitle}>Kütüphanen</Text>
         
         <FlatList
           data={filterOptions}
@@ -353,25 +353,6 @@ export default function LibraryScreen({ navigation }) {
           </View>
         )}
 
-        {activeFilter === 'downloads' && (
-          <View style={styles.emptySection}>
-            <Text style={styles.emptyText}>Henüz hiç indirilen içeriğiniz yok.</Text>
-            <TouchableOpacity 
-              style={styles.exploreButtonContainer}
-              onPress={() => navigation.navigate('Search')}
-            >
-              <LinearGradient
-                colors={Colors.gradient.buttonPrimary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.exploreButton}
-              >
-                <Text style={styles.exploreButtonText}>Müzik Keşfet</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* Alt padding */}
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -388,33 +369,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginRight: 15,
-  },
-  profileGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileLetter: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.textPrimary,
+    marginBottom: 20,
   },
   filterContainer: {
     marginBottom: 10,
@@ -463,7 +422,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   playlistItem: {
-    marginBottom: 15,
+    marginBottom: 8,
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -502,11 +461,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
-  artistCover: {
+  artistCoverContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
     marginRight: 15,
+    overflow: 'hidden',
+    backgroundColor: Colors.backgroundDark,
+  },
+  artistCover: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 30,
   },
   artistInfo: {
     flex: 1,

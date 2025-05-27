@@ -16,6 +16,7 @@ import NetworkStatus from '../../components/NetworkStatus';
 import SongCard from '../../components/SongCard';
 import SongOptionsModal from '../../components/SongOptionsModal';
 import PlaylistCoverArt from '../../components/PlaylistCoverArt';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function PlaylistDetailScreen({ navigation, route }) {
   const { id: playlistId } = route.params;
@@ -154,10 +155,10 @@ export default function PlaylistDetailScreen({ navigation, route }) {
       <View style={[styles.container, styles.centerContent]}>
         <Text style={styles.errorText}>Playlist not found</Text>
         <TouchableOpacity 
-          style={styles.retryButton}
+          style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.retryButtonText}>Go Back</Text>
+          <Text style={styles.backButton}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -177,7 +178,7 @@ export default function PlaylistDetailScreen({ navigation, route }) {
         >
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backButtonText}>←</Text>
+              <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
             </TouchableOpacity>
             
             <PlaylistCoverArt 
@@ -233,7 +234,7 @@ export default function PlaylistDetailScreen({ navigation, route }) {
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>←</Text>
+            <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           
           <PlaylistCoverArt 
@@ -270,11 +271,14 @@ export default function PlaylistDetailScreen({ navigation, route }) {
         <Text style={styles.songsTitle}>{`${songs.length} Songs`}</Text>
         
         <FlatList
+          key="two-column"
           data={songs}
           renderItem={renderSongItem}
           keyExtractor={(item, index) => `song-${item.id || index}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.songsList}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No songs in this playlist</Text>
@@ -339,10 +343,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 10,
   },
-  backButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 24,
-  },
   playlistInfo: {
     alignItems: 'center',
   },
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     marginTop: -20,
     paddingTop: 20,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
   songsTitle: {
     fontSize: 18,
@@ -399,6 +399,11 @@ const styles = StyleSheet.create({
   },
   songsList: {
     paddingBottom: 100,
+    paddingHorizontal: 12,
+  },
+  row: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   songItem: {
     flexDirection: 'row',

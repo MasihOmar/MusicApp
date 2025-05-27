@@ -1,27 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { streamService } from '../services/api';
 
 const { width } = Dimensions.get('window');
+const CARD_SPACING = 24;
+const HORIZONTAL_PADDING = 20;
+const CARD_WIDTH = (width - (HORIZONTAL_PADDING * 2) - CARD_SPACING) / 2;
 
 const SongCard = ({ song, onPress, onOptionsPress }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
   const coverArtUrl = streamService.getCoverArtUrl(song);
-  // console.log('Song:', song.title);
-  // console.log('FileName:', song.fileName);
-  // console.log('Cover Art URL:', coverArtUrl);
+
+  const handleLoadStart = useCallback(() => {
+    setIsLoading(true);
+  }, []);
+
+  const handleLoadEnd = useCallback(() => {
+    setIsLoading(false);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -36,22 +43,22 @@ const SongCard = ({ song, onPress, onOptionsPress }) => {
             </View>
           )}
           <Image 
-            source={{ uri: coverArtUrl }} 
-            style={[styles.cover, hasError && styles.errorImage]}
-            defaultSource={{ uri: streamService.getDefaultCoverArt() }}
-            onLoadStart={() => setIsLoading(true)}
-            onLoadEnd={() => setIsLoading(false)}
-            onError={(error) => {
-              // console.log('Image loading error for song:', song.title);
-              // console.log('Error details:', error.nativeEvent.error);
-              // console.log('Attempted URL:', coverArtUrl);
-              setHasError(true);
-              setIsLoading(false);
+            source={{
+              uri: coverArtUrl,
+              width: CARD_WIDTH,
+              height: CARD_WIDTH,
             }}
-            onLoad={() => {
-              // console.log('Image loaded successfully for song:', song.title);
-              setHasError(false);
-            }}
+            style={styles.cover}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="none"
+            recyclingKey={song.id.toString()}
+            onLoadStart={handleLoadStart}
+            onLoadEnd={handleLoadEnd}
+            placeholder={streamService.getDefaultCoverArt()}
+            placeholderContentFit="cover"
+            contentPosition="center"
+            quality={0.5}
           />
           <LinearGradient
             colors={['rgba(0,0,0,0.7)', 'transparent']}
@@ -85,20 +92,21 @@ const SongCard = ({ song, onPress, onOptionsPress }) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: width * 0.4,
-    marginRight: 16,
+    width: CARD_WIDTH,
+    marginBottom: 24,
+    marginHorizontal: CARD_SPACING / 2,
   },
   content: {
-    width: '100%',
+    flex: 1,
   },
   imageWrapper: {
     position: 'relative',
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 8,
+    marginBottom: 12,
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 8,
-    backgroundColor: Colors.cardBackground,
+    backgroundColor: Colors.backgroundDark,
   },
   cover: {
     width: '100%',
@@ -112,10 +120,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-  },
-  errorImage: {
-    opacity: 0.5,
+    backgroundColor: Colors.backgroundDark,
   },
   gradient: {
     position: 'absolute',
@@ -126,34 +131,34 @@ const styles = StyleSheet.create({
   },
   playIconContainer: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
+    bottom: 12,
+    right: 12,
   },
   playIconGradient: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   playIcon: {
-    color: '#fff',
-    fontSize: 12,
+    color: Colors.textPrimary,
+    fontSize: 14,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 6,
   },
   artist: {
-    fontSize: 14,
     color: Colors.textSecondary,
+    fontSize: 12,
   },
   optionsButton: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: 4,
+    right: 4,
     padding: 8,
   },
 });

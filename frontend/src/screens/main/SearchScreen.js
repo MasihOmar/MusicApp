@@ -30,31 +30,15 @@ export default function SearchScreen({ navigation }) {
   const [searching, setSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
-  const [popularArtists, setPopularArtists] = useState([]);
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState(null);
 
-  // Fetch popular artists and categories on component mount
+  // Fetch categories on component mount
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Fetch songs for artists extraction
+        // Fetch songs for categories extraction
         const songs = await songService.getAllSongs();
-        
-        // Extract unique artists
-        const artistMap = {};
-        songs.forEach(song => {
-          if (song.artist && !artistMap[song.artist]) {
-            artistMap[song.artist] = {
-              id: song.id,  // Use song ID as artist ID for image
-              name: song.artist,
-              image: streamService.getCoverArtUrl(song.file_name)
-            };
-          }
-        });
-        
-        const artists = Object.values(artistMap).slice(0, 10);
-        setPopularArtists(artists);
         
         // Extract unique genres as categories
         const genreMap = {};
@@ -94,7 +78,7 @@ export default function SearchScreen({ navigation }) {
       
       try {
         // Try server-side search first
-        const results = await searchService.fuzzySearch(query);
+        const results = await searchService.search(query);
         
         // If results come back but don't seem to be filtered correctly
         // or if the results are empty, fall back to client-side filtering
@@ -243,7 +227,7 @@ export default function SearchScreen({ navigation }) {
     setIsLoading(true);
     
     try {
-      const results = await searchService.fuzzySearch(category.name);
+      const results = await searchService.search(category.name);
       
       // If server search doesn't return good results, filter locally
       if (!results || results.length === 0 || !isResultsRelevant(results, category.name)) {
@@ -291,65 +275,6 @@ export default function SearchScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  // Render artist item
-  const renderArtistItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.artistItem}
-      onPress={async () => {
-        setSearchQuery(item.name);
-        setSearching(true);
-        setIsLoading(true);
-        
-        try {
-          // Try server-side search first
-          const results = await searchService.fuzzySearch(item.name);
-          
-          // If results come back but don't seem to be filtered for this artist
-          // or if the results are empty, fall back to client-side filtering
-          if (!results || results.length === 0 || !isResultsRelevant(results, item.name)) {
-            console.log('Server search returned poor results, using client-side filtering for artist');
-            const allSongs = await songService.getAllSongs();
-            const artistSongs = allSongs.filter(song => 
-              song.artist && song.artist.toLowerCase() === item.name.toLowerCase()
-            );
-            setSearchResults(artistSongs);
-          } else {
-            setSearchResults(results || []);
-          }
-        } catch (err) {
-          console.error('Error searching for artist:', err);
-          
-          // Fallback to client-side filtering
-          try {
-            const allSongs = await songService.getAllSongs();
-            const artistSongs = allSongs.filter(song => 
-              song.artist && song.artist.toLowerCase() === item.name.toLowerCase()
-            );
-            setSearchResults(artistSongs);
-          } catch (fallbackErr) {
-            console.error('Error in fallback artist search:', fallbackErr);
-            setError('Artist search failed. Please try again.');
-          }
-        } finally {
-          setIsLoading(false);
-        }
-      }}
-    >
-      <View style={styles.artistImageContainer}>
-        <Image 
-          source={{ uri: item.image }} 
-          style={styles.artistImage}
-          defaultSource={{ uri: streamService.getDefaultCoverArt() }}
-        />
-      </View>
-      <Text style={styles.artistName}>{item.name}</Text>
-    </TouchableOpacity>
-  );
-
-  // State for song options modal
-  const [selectedSong, setSelectedSong] = useState(null);
-  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
-
   // Render search result item
   const renderSearchResultItem = ({ item }) => (
     <SongCard
@@ -361,6 +286,10 @@ export default function SearchScreen({ navigation }) {
       }}
     />
   );
+
+  // State for song options modal
+  const [selectedSong, setSelectedSong] = useState(null);
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
   return (
     <LinearGradient
@@ -401,7 +330,21 @@ export default function SearchScreen({ navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {searching ? (
+        {!searching ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Browse Categories</Text>
+              <FlatList
+                data={categories}
+                renderItem={renderCategoryItem}
+                keyExtractor={item => item.id}
+                numColumns={2}
+                scrollEnabled={false}
+                contentContainerStyle={styles.categoriesGrid}
+              />
+            </View>
+          </>
+        ) : (
           <View style={styles.searchResultsContainer}>
             {isLoading ? (
               <View style={styles.loaderContainer}>
@@ -429,32 +372,6 @@ export default function SearchScreen({ navigation }) {
               </View>
             )}
           </View>
-        ) : (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Browse Categories</Text>
-              <FlatList
-                data={categories}
-                renderItem={renderCategoryItem}
-                keyExtractor={item => item.id}
-                numColumns={2}
-                scrollEnabled={false}
-                contentContainerStyle={styles.categoriesGrid}
-              />
-            </View>
-
-            <View style={[styles.section, styles.lastSection]}>
-              <Text style={styles.sectionTitle}>Popular Artists</Text>
-              <FlatList
-                data={popularArtists}
-                renderItem={renderArtistItem}
-                keyExtractor={item => item.id.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.artistsContainer}
-              />
-            </View>
-          </>
         )}
       </ScrollView>
     </LinearGradient>
@@ -628,31 +545,5 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
-  },
-  artistsContainer: {
-    paddingRight: 16,
-  },
-  artistItem: {
-    marginRight: 16,
-    alignItems: 'center',
-    width: 100,
-  },
-  artistImageContainer: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  artistImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 8,
-  },
-  artistName: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    textAlign: 'center',
   },
 });
