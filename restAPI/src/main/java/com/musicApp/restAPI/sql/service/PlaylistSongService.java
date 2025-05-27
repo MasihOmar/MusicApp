@@ -1,62 +1,71 @@
 package com.musicApp.restAPI.sql.service;
 
-import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
-import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongEntity;
-import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongId;
-import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
-import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistRepository;
-import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongRepository;
-import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+
+import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
+import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistRepository;
+import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
+import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
+import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongEntity;
+import com.musicApp.restAPI.sql.persistance.PlaylistSong.PlaylistSongRepository;
 
 @Service
 public class PlaylistSongService {
 
-    private final PlaylistSongRepository playlistSongRepository;
     private final PlaylistRepository playlistRepository;
     private final SongRepository songRepository;
+    private final PlaylistSongRepository playlistSongRepository;
 
-    public PlaylistSongService(PlaylistSongRepository playlistSongRepository,
-                               PlaylistRepository playlistRepository,
-                               SongRepository songRepository) {
-        this.playlistSongRepository = playlistSongRepository;
+    public PlaylistSongService(
+            PlaylistRepository playlistRepository,
+            SongRepository songRepository,
+            PlaylistSongRepository playlistSongRepository) {
         this.playlistRepository = playlistRepository;
         this.songRepository = songRepository;
+        this.playlistSongRepository = playlistSongRepository;
     }
 
-    // add song to playlist
-    public void addSongToPlaylist(Long playlistId, Long songId) {
-        Optional<PlaylistEntity> playlistOpt = playlistRepository.findById(playlistId);
-        Optional<SongEntity> songOpt = songRepository.findById(songId);
-
-        if (playlistOpt.isPresent() && songOpt.isPresent()) {
+    // Add song to playlist
+    public boolean addSongToPlaylist(Long playlistId, Long songId) {
+        Optional<PlaylistEntity> playlist = playlistRepository.findById(playlistId);
+        Optional<SongEntity> song = songRepository.findById(songId);
+        
+        if (playlist.isPresent() && song.isPresent()) {
             PlaylistSongEntity playlistSong = new PlaylistSongEntity();
-
-            PlaylistSongId id = new PlaylistSongId(playlistId, songId);
-
-            playlistSong.setId(id);
-            playlistSong.setPlaylist(playlistOpt.get());
-            playlistSong.setSong(songOpt.get());
-
+            playlistSong.setPlaylist(playlist.get());
+            playlistSong.setSong(song.get());
             playlistSongRepository.save(playlistSong);
+            return true;
         }
+        return false;
     }
 
-    // delete song from playlist
-    public void deleteSongFromPlaylist(PlaylistSongId playlistSongId) {
-        playlistSongRepository.deleteById(playlistSongId);
+    // Get all songs in a playlist
+    public List<SongEntity> getPlaylistSongs(Long playlistId) {
+        Optional<PlaylistEntity> playlist = playlistRepository.findById(playlistId);
+        if (playlist.isPresent()) {
+            return playlist.get().getSongs();
+        }
+        return null;
     }
 
-    // get songs from playlist
-    public List<PlaylistSongEntity> getSongsByPlaylistId(Long playlistId) {
-        return playlistSongRepository.findByPlaylistId(playlistId);
+    // Check if song is in playlist
+    public boolean isSongInPlaylist(Long playlistId, Long songId) {
+        return playlistSongRepository.existsByPlaylistIdAndSongId(playlistId, songId);
     }
 
-    // find playlist song by id
-    public Optional<PlaylistSongEntity> findSongById(PlaylistSongId playlistSongId) {
-        return playlistSongRepository.findById(playlistSongId);
+    // Remove song from playlist
+    public boolean removeSongFromPlaylist(Long playlistId, Long songId) {
+        PlaylistSongEntity playlistSong = playlistSongRepository
+                .findByPlaylistIdAndSongId(playlistId, songId);
+        
+        if (playlistSong != null) {
+            playlistSongRepository.delete(playlistSong);
+            return true;
+        }
+        return false;
     }
 }

@@ -1,35 +1,44 @@
 package com.musicApp.restAPI.sql.service;
 
-import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
-import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
+import com.musicApp.restAPI.sql.persistance.Song.SongRepository;
 
 @Service
 public class SongService {
 
     private final SongRepository songRepository;
 
-    public SongService(SongRepository repository){
-        this.songRepository = repository;
+    public SongService(SongRepository songRepository) {
+        this.songRepository = songRepository;
     }
 
-    // get all songs
-    public List<SongEntity> getAllSongs(){
-        return this.songRepository.findAll();
+    // Get all songs
+    public List<SongEntity> getAllSongs() {
+        return songRepository.findAll();
     }
 
-    // find song by its id
-    public SongEntity findSongById(Long id){
-        return this.songRepository.findById(id).get();
+    // Get song by ID
+    public SongEntity getSongById(Long id) {
+        return songRepository.findById(id).orElse(null);
     }
 
-    public void addSong(SongEntity song){
-        this.songRepository.save(song);
+    // Create new song
+    public SongEntity createSong(SongEntity song) {
+        return songRepository.save(song);
     }
 
-    public void deleteSong(Long id){
-        this.songRepository.deleteById(id);
+    // Delete song
+    public boolean deleteSong(Long id) {
+        Optional<SongEntity> song = songRepository.findById(id);
+        if (song.isPresent()) {
+            songRepository.delete(song.get());
+            return true;
+        }
+        return false;
     }
 }

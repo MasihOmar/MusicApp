@@ -1,33 +1,46 @@
 package com.musicApp.restAPI.sql.persistance.PlaylistSong;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import com.musicApp.restAPI.sql.persistance.Playlist.PlaylistEntity;
 import com.musicApp.restAPI.sql.persistance.Song.SongEntity;
-import jakarta.persistence.*;
-import lombok.Data;
 
-@Data
 @Entity
-@Table(name = "Playlist_Songs")
+@Table(name = "playlist_songs")
 public class PlaylistSongEntity {
-
-    @EmbeddedId
-    private PlaylistSongId id;
-
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
     @ManyToOne
-    @MapsId("playlistId")
     @JoinColumn(name = "playlist_id")
-    @JsonIgnore
     private PlaylistEntity playlist;
-
+    
     @ManyToOne
-    @MapsId("songId")
     @JoinColumn(name = "song_id")
-    @JsonIgnore
     private SongEntity song;
-
-    public String getId(){
-        return String.valueOf(this.id.getSongId());
+    
+    public Long getId() {
+        return id;
     }
-
+    
+    public void setId(Long id) {
+        this.id = id;
+    }
+    
+    public PlaylistEntity getPlaylist() {
+        return playlist;
+    }
+    
+    public void setPlaylist(PlaylistEntity playlist) {
+        this.playlist = playlist;
+    }
+    
+    public SongEntity getSong() {
+        return song;
+    }
+    
+    public void setSong(SongEntity song) {
+        this.song = song;
+    }
 }

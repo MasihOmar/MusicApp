@@ -2,27 +2,73 @@ package com.musicApp.restAPI.controller;
 
 import com.musicApp.restAPI.model.UserSongInteraction;
 import com.musicApp.restAPI.repository.UserSongInteractionRepository;
+import com.musicApp.restAPI.sql.persistance.User.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/interactions")
+@RequestMapping("/v1/api/interactions")
 public class UserInteractionController {
     
     @Autowired
     private UserSongInteractionRepository interactionRepository;
     
+    @Autowired
+    private UserRepository userRepository;
+    
     @PostMapping
-    public ResponseEntity<UserSongInteraction> recordInteraction(@RequestBody UserSongInteraction interaction) {
-        // Set timestamp to now if not provided
-        if (interaction.getTimestamp() == null) {
+    public ResponseEntity<?> recordInteraction(@RequestBody Map<String, Object> interactionData) {
+        try {
+            // Get user ID from authentication context
+            Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            if (userId == null) {
+                return ResponseEntity.status(401).body(Map.of(
+                    "error", "Unauthorized",
+                    "message", "User not authenticated"
+                ));
+            }
+            
+            // Create new interaction
+            UserSongInteraction interaction = new UserSongInteraction();
+            
+            // Set required fields
+            interaction.setUserId(userId);
+            interaction.setSongId(((Number) interactionData.get("songId")).longValue());
+            
+            // Set interaction flags
+            interaction.setPlayed((Boolean) interactionData.getOrDefault("played", false));
+            interaction.setCompleted((Boolean) interactionData.getOrDefault("completed", false));
+            interaction.setSkipped((Boolean) interactionData.getOrDefault("skipped", false));
+            
+            // Set duration fields
+            if (interactionData.containsKey("skipPositionMs")) {
+                interaction.setSkipPositionMs(((Number) interactionData.get("skipPositionMs")).intValue());
+            }
+            if (interactionData.containsKey("listenDurationMs")) {
+                interaction.setListenDurationMs(((Number) interactionData.get("listenDurationMs")).intValue());
+            }
+            if (interactionData.containsKey("songDurationMs")) {
+                interaction.setSongDurationMs(((Number) interactionData.get("songDurationMs")).intValue());
+            }
+            
+            // Set timestamp
             interaction.setTimestamp(LocalDateTime.now());
+            
+            // Save and return
+            UserSongInteraction saved = interactionRepository.save(interaction);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to record interaction",
+                "message", e.getMessage()
+            ));
         }
-        return ResponseEntity.ok(interactionRepository.save(interaction));
     }
     
     @GetMapping("/user/{userId}")

@@ -1,31 +1,55 @@
 package com.musicApp.restAPI.stream;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.logging.Logger;
 
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SongStreamService {
-    private static final String SONG_DIR = System.getProperty("user.home") + "/MusicApp/songs/";
-    private static final String COVER_DIR = System.getProperty("user.home") + "/MusicApp/coverArt/";
+    private static final Logger LOGGER = Logger.getLogger(SongStreamService.class.getName());
+    
+    @Autowired
+    private ResourceLoader resourceLoader;
+    
+    private static final String SONGS_PATH = "classpath:static/music/";
+    private static final String COVERS_PATH = "classpath:static/covers/";
 
     public Resource getSongFile(String filename) throws Exception {
-        Path path = Paths.get(SONG_DIR + filename);
-        if (!Files.exists(path)) {
-            throw new Exception("MP3 file not found: " + filename);
+        if (filename == null || filename.isEmpty()) {
+            LOGGER.warning("Attempted to get song file with null or empty filename");
+            throw new IllegalArgumentException("Filename cannot be null or empty");
         }
-        return new FileSystemResource(path);
+        
+        String resourcePath = SONGS_PATH + filename;
+        LOGGER.info("Attempting to load song file from: " + resourcePath);
+        
+        Resource resource = resourceLoader.getResource(resourcePath);
+        if (!resource.exists()) {
+            LOGGER.warning("Song file not found: " + filename);
+            throw new Exception("Song file not found: " + filename);
+        }
+        
+        return resource;
     }
 
     public Resource getCoverFile(String filename) throws Exception {
-        Path path = Paths.get(COVER_DIR + filename);
-        if (!Files.exists(path)) {
-            throw new Exception("JPEG file not found: " + filename);
+        if (filename == null || filename.isEmpty()) {
+            LOGGER.warning("Attempted to get cover file with null or empty filename");
+            throw new IllegalArgumentException("Filename cannot be null or empty");
         }
-        return new FileSystemResource(path);
+        
+        String resourcePath = COVERS_PATH + filename;
+        LOGGER.info("Attempting to load cover file from: " + resourcePath);
+        
+        Resource resource = resourceLoader.getResource(resourcePath);
+        if (!resource.exists()) {
+            LOGGER.warning("Cover file not found: " + filename);
+            throw new Exception("Cover file not found: " + filename);
+        }
+        
+        return resource;
     }
 }

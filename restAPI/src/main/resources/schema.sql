@@ -1,7 +1,7 @@
 -- Drop tables if they exist
 DROP TABLE IF EXISTS playlist_songs;
-DROP TABLE IF EXISTS playlists;
 DROP TABLE IF EXISTS user_song_interactions;
+DROP TABLE IF EXISTS playlists;
 DROP TABLE IF EXISTS songs;
 DROP TABLE IF EXISTS users;
 
@@ -9,7 +9,8 @@ DROP TABLE IF EXISTS users;
 CREATE TABLE users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255),
-    password_hash VARCHAR(255)
+    password_hash VARCHAR(255),
+    email VARCHAR(255)
 );
 
 -- Create songs table
@@ -53,6 +54,15 @@ CREATE TABLE user_song_interactions (
     listen_duration_ms INT DEFAULT 0,
     song_duration_ms INT DEFAULT 0,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+);
+
+CREATE TABLE IF NOT EXISTS playback_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    song_id BIGINT NOT NULL,
+    played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
 ); 

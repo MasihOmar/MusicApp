@@ -1,6 +1,6 @@
 -- Sample Users
-INSERT INTO users (username, password_hash) VALUES ('user1', '$2a$10$aes.RoqKVtVXGf7OGLf0K.qGZrpXuSZje1pqryi5kAH3o9R/YRd9q'); -- Password: password1
-INSERT INTO users (username, password_hash) VALUES ('user2', '$2a$10$aes.RoqKVtVXGf7OGLf0K.qGZrpXuSZje1pqryi5kAH3o9R/YRd9q'); -- Password: password1
+INSERT INTO users (username, password_hash, email) VALUES ('user1', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZGHF4gh5r6h0h6r6h0h6r6h0h6r6', 'user1@example.com'); -- Password: password1
+INSERT INTO users (username, password_hash, email) VALUES ('user2', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZGHF4gh5r6h0h6r6h0h6r6h0h6r6', 'user2@example.com'); -- Password: password1
 
 -- Sample Songs
 INSERT INTO songs (title, artist, genre, release_year, tempo, energy, duration, file_name) VALUES ('Superstar', 'Jamelia', 'Pop', 2003, 128.0, 0.82, 213, 'Jamelia - Superstar.mp3');

@@ -1,4 +1,4 @@
-package com.musicApp.restAPI.recommendation;
+package com.musicApp.restAPI.service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,6 +48,11 @@ public class RecommendationService {
         
         // Get songs the user has listened to
         Set<Long> userSongs = userSongGraph.getOrDefault(userId, new HashSet<>());
+        
+        // If the user has no data, return random songs
+        if (userSongs.isEmpty()) {
+            return getRandomSongs(limit);
+        }
         
         // Get songs the user has skipped to penalize them in recommendations
         Set<Long> skippedSongs = getSkippedSongs(userId);
@@ -100,7 +105,29 @@ public class RecommendationService {
             songRepository.findById(id).ifPresent(recommendedSongs::add);
         }
         
+        // If no recommendations found, return random songs as fallback
+        if (recommendedSongs.isEmpty()) {
+            return getRandomSongs(limit);
+        }
+        
         return recommendedSongs;
+    }
+    
+    // Helper to get random songs
+    private List<SongEntity> getRandomSongs(int limit) {
+        List<SongEntity> allSongs = songRepository.findAll();
+        List<SongEntity> randomSongs = new ArrayList<>();
+        if (allSongs.isEmpty()) return randomSongs;
+        Set<Integer> usedIndexes = new HashSet<>();
+        int max = Math.min(limit, allSongs.size());
+        while (randomSongs.size() < max) {
+            int idx = random.nextInt(allSongs.size());
+            if (!usedIndexes.contains(idx)) {
+                randomSongs.add(allSongs.get(idx));
+                usedIndexes.add(idx);
+            }
+        }
+        return randomSongs;
     }
     
     // Get songs the user has skipped

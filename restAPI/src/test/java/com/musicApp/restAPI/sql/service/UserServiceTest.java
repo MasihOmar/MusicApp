@@ -59,19 +59,21 @@ class UserServiceTest {
     }
 
     @Test
-    void findUserById_ShouldReturnUser() {
+    void getUserById_ShouldReturnUser() {
         // given
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
 
         // when
-        UserEntity result = userService.findUserById(1L);
+        UserEntity result = userService.getUserById(1L);
 
         // then
         assertNotNull(result);
         assertEquals(testUser, result);
         verify(userRepository).findById(1L);
-    }    @Test
-    void addUser_ShouldSaveUser() {
+    }    
+    
+    @Test
+    void createUser_ShouldSaveUser() {
         // given
         String rawPassword = "password";
         String hashedPassword = "hashedPassword";
@@ -81,13 +83,14 @@ class UserServiceTest {
         when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
 
         // when
-        userService.addUser(testUser);
+        UserEntity savedUser = userService.createUser(testUser);
 
         // then
         verify(passwordEncoder).encode(rawPassword);
-        verify(userRepository).save(argThat(savedUser -> 
-            savedUser.getPassword_hash().equals(hashedPassword)
+        verify(userRepository).save(argThat(user -> 
+            user.getPassword_hash().equals(hashedPassword)
         ));
+        assertEquals(testUser, savedUser);
     }
 
     @Test
@@ -100,14 +103,16 @@ class UserServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode(any())).thenReturn(hashedPassword);
+        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
 
         // when
-        userService.updateUser(1L, updatedUser);
+        UserEntity result = userService.updateUser(1L, updatedUser);
 
         // then
         verify(userRepository).findById(1L);
         verify(passwordEncoder).encode(updatedUser.getPassword_hash());
         verify(userRepository).save(testUser);
+        assertEquals(testUser, result);
     }
 
     @Test
