@@ -19,11 +19,20 @@ export default function RegisterScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const { register } = useAuth();
 
   const validateForm = () => {
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter an email address.');
+      return false;
+    }
+    if (!email.includes('@') || !email.includes('.')) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return false;
+    }
     if (!username.trim()) {
       Alert.alert('Error', 'Please enter a username.');
       return false;
@@ -49,8 +58,11 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       await register({ 
-        username, 
-        password
+        email,
+        username,
+        password_hash: password,
+        role: "USER",
+        status: "ACTIVE"
       });
     } catch (error) {
       Alert.alert('Registration Error', error.message || 'An error occurred during registration. Please try again.');
@@ -72,6 +84,17 @@ export default function RegisterScreen() {
       <Text style={styles.subtitle}>Join MusicApp today</Text>
       
       <View style={styles.formContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={Colors.textSecondary}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          editable={!isLoading}
+        />
+        
         <TextInput
           style={styles.input}
           placeholder="Username"

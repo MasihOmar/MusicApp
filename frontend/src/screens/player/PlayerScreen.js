@@ -6,7 +6,7 @@ import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Colors from '../../constants/colors';
-import { songService, streamService } from '../../services/api';
+import { songService, streamService, interactionService } from '../../services/api';
 import { usePlayer } from '../../context/PlayerContext';
 
 const { width } = Dimensions.get('window');
@@ -132,6 +132,8 @@ const PlayerScreen = ({ navigation, route }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
   const statusUpdateInterval = useRef(null);
+  const lastPositionRef = useRef(0);
+  const lastSongIdRef = useRef(null);
 
   const {
     currentSong,
@@ -181,14 +183,23 @@ const PlayerScreen = ({ navigation, route }) => {
           if (route.params?.songId) {
             const songIndex = songsData.findIndex(song => song.id === route.params.songId);
             if (songIndex !== -1) {
-              playSong(songsData[songIndex], songsData, songIndex);
+              const song = songsData[songIndex];
+              const streamUrl = streamService.getSongStreamUrl(song);
+              console.log('Streaming URL:', streamUrl);
+              playSong(song, songsData, songIndex);
             } else {
               // If song not found, play the first song
-              playSong(songsData[0], songsData, 0);
+              const firstSong = songsData[0];
+              const streamUrl = streamService.getSongStreamUrl(firstSong);
+              console.log('Streaming URL:', streamUrl);
+              playSong(firstSong, songsData, 0);
             }
           } else {
             // If no specific song is requested, play the first song
-            playSong(songsData[0], songsData, 0);
+            const firstSong = songsData[0];
+            const streamUrl = streamService.getSongStreamUrl(firstSong);
+            console.log('Streaming URL:', streamUrl);
+            playSong(firstSong, songsData, 0);
           }
         }
         setIsLoading(false);
@@ -201,10 +212,31 @@ const PlayerScreen = ({ navigation, route }) => {
     fetchSongs();
   }, [route.params?.songId]);
 
+  // Helper to record skip interaction
+  const recordSkipInteraction = async (skipPosition, songObj, songDuration) => {
+    if (!songObj) return;
+    try {
+      await interactionService.recordInteraction({
+        songId: songObj.id,
+        played: true,
+        skipped: true,
+        skipPositionMs: skipPosition,
+        listenDurationMs: skipPosition,
+        songDurationMs: songDuration,
+      });
+    } catch (err) {
+      console.warn('Failed to record skip interaction:', err);
+    }
+  };
+
   // Handle seek
   const handleSeekStart = () => setIsSeeking(true);
   const handleSeekComplete = async value => {
     if (!soundRef.current) return;
+    // If seeking to a position less than the current position (rewind) or skipping forward but not to the end
+    if (currentSong && Math.abs(value - position) > 2000 && value < (duration - 1000)) {
+      await recordSkipInteraction(position, currentSong, duration);
+    }
     try {
       await soundRef.current.setPositionAsync(value);
       setPosition(value);
@@ -227,7 +259,11 @@ const PlayerScreen = ({ navigation, route }) => {
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
-  const handlePrevious = () => {
+  // Handle previous/next with skip detection
+  const handlePrevious = async () => {
+    if (currentSong && position < (duration - 1000)) {
+      await recordSkipInteraction(position, currentSong, duration);
+    }
     if (currentIndex > 0) {
       playSong(songs[currentIndex - 1], songs, currentIndex - 1);
     } else {
@@ -235,9 +271,11 @@ const PlayerScreen = ({ navigation, route }) => {
     }
   };
 
-  // Add a handler for the skip button
-  const handleSkip = () => {
-    skipSong();
+  const handleNext = async () => {
+    if (currentSong && position < (duration - 1000)) {
+      await recordSkipInteraction(position, currentSong, duration);
+    }
+    playNext();
   };
 
   if (isLoading) {
@@ -273,7 +311,7 @@ const PlayerScreen = ({ navigation, route }) => {
     );
   }
 
-  const coverArtUrl = streamService.getCoverArtUrl(currentSong.fileName);
+  const coverArtUrl = streamService.getCoverArtUrl(currentSong);
 
   return (
     <LinearGradient
@@ -326,19 +364,13 @@ const PlayerScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={togglePlayPause}>
           {isPlaying ? <PauseIcon /> : <PlayIcon />}
         </TouchableOpacity>
-        <TouchableOpacity onPress={playNext}>
+        <TouchableOpacity onPress={handleNext}>
           <NextIcon />
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleLoop}>
           <LoopIcon active={isLooping} />
         </TouchableOpacity>
       </View>
-      
-      {/* Add skip button below the main controls */}
-      <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-        <SkipIcon />
-        <Text style={styles.skipText}>Skip this song</Text>
-      </TouchableOpacity>
     </LinearGradient>
   );
 };

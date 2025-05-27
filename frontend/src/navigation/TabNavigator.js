@@ -5,10 +5,13 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigationState } from '@react-navigation/native';
 import HomeScreen from '../screens/main/HomeScreen';
 import SearchScreen from '../screens/main/SearchScreen';
 import LibraryScreen from '../screens/main/LibraryScreen';
 import Colors from '../constants/colors';
+import MiniPlayer from '../components/MiniPlayer';
+import { usePlayer } from '../context/PlayerContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -153,35 +156,52 @@ const renderIcon = (routeName, isFocused) => {
 };
 
 export default function TabNavigator() {
+  const { currentSong, isPlaying, playNext, playPrevious, togglePlayPause } = usePlayer();
+  const state = useNavigationState(state => state);
+  const tabRoute = state.routes[state.index]?.name;
+  const showMiniPlayer = currentSong && ['Home', 'Search', 'Library'].includes(tabRoute);
+
   return (
-    <Tab.Navigator
-      tabBar={props => <MyTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen} 
-        options={{
-          tabBarLabel: 'Ana Sayfa',
+    <>
+      <Tab.Navigator
+        tabBar={props => <MyTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
         }}
-      />
-      <Tab.Screen 
-        name="Search" 
-        component={SearchScreen}
-        options={{
-          tabBarLabel: 'Ara',
-        }}
-      />
-      <Tab.Screen 
-        name="Library" 
-        component={LibraryScreen}
-        options={{
-          tabBarLabel: 'Kütüphane',
-        }}
-      />
-    </Tab.Navigator>
+      >
+        <Tab.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{
+            tabBarLabel: 'Ana Sayfa',
+          }}
+        />
+        <Tab.Screen 
+          name="Search" 
+          component={SearchScreen}
+          options={{
+            tabBarLabel: 'Ara',
+          }}
+        />
+        <Tab.Screen 
+          name="Library" 
+          component={LibraryScreen}
+          options={{
+            tabBarLabel: 'Kütüphane',
+          }}
+        />
+      </Tab.Navigator>
+      {showMiniPlayer && (
+        <MiniPlayer
+          currentSong={currentSong}
+          isPlaying={isPlaying}
+          onPlayPause={togglePlayPause}
+          onNext={playNext}
+          onPrevious={playPrevious}
+          onPress={() => {}}
+        />
+      )}
+    </>
   );
 }
 

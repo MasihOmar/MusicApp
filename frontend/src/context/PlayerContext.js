@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { Audio } from 'expo-av';
-import { streamService, interactionService } from '../services/api';
+import { streamService, interactionService, playbackHistoryService } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PlayerContext = createContext();
 
@@ -32,7 +33,7 @@ export const PlayerProvider = ({ children }) => {
       setCurrentIndex(index);
       setCurrentSong(song);
 
-      const streamUrl = streamService.getSongStreamUrl(song.fileName);
+      const streamUrl = streamService.getSongStreamUrl(song);
       if (!streamUrl) {
         console.error('No stream URL available for song:', song);
         return;
@@ -56,6 +57,12 @@ export const PlayerProvider = ({ children }) => {
         
         // Record that user started playing this song
         recordSongPlay(song.id, status.durationMillis);
+        
+        // Record in playback history
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          await playbackHistoryService.recordPlayback(song.id);
+        }
       } else {
         console.log('Song not loaded yet');
         setSongDuration(0);
@@ -69,15 +76,25 @@ export const PlayerProvider = ({ children }) => {
   // Record that user played a song
   const recordSongPlay = async (songId, durationMs) => {
     try {
-      await interactionService.recordInteraction({
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.warn('No user ID found, skipping interaction recording');
+        return;
+      }
+
+      const result = await interactionService.recordInteraction({
         songId,
         played: true,
         skipped: false,
         completed: false,
         songDurationMs: durationMs
       });
+      
+      if (result.error) {
+        console.warn('Failed to record song play:', result.error);
+      }
     } catch (error) {
-      console.error('Error recording song play:', error);
+      console.warn('Error recording song play:', error);
     }
   };
 
@@ -86,6 +103,12 @@ export const PlayerProvider = ({ children }) => {
     if (!currentSong) return;
     
     try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.warn('No user ID found, skipping interaction recording');
+        return;
+      }
+
       const status = await soundRef.current.getStatusAsync();
       if (!status.isLoaded) return;
       
@@ -95,7 +118,7 @@ export const PlayerProvider = ({ children }) => {
       // Consider it completed if user listened to at least 90%
       const completed = positionMs >= durationMs * 0.9;
       
-      await interactionService.recordInteraction({
+      const result = await interactionService.recordInteraction({
         songId: currentSong.id,
         played: false,
         completed: completed,
@@ -103,8 +126,12 @@ export const PlayerProvider = ({ children }) => {
         listenDurationMs: positionMs,
         songDurationMs: durationMs
       });
+      
+      if (result.error) {
+        console.warn('Failed to record song completion:', result.error);
+      }
     } catch (error) {
-      console.error('Error recording song completion:', error);
+      console.warn('Error recording song completion:', error);
     }
   };
 
@@ -113,12 +140,18 @@ export const PlayerProvider = ({ children }) => {
     if (!currentSong) return;
     
     try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        console.warn('No user ID found, skipping interaction recording');
+        return;
+      }
+
       const status = await soundRef.current.getStatusAsync();
       if (!status.isLoaded) return;
       
       const positionMs = status.positionMillis || 0;
       
-      await interactionService.recordInteraction({
+      const result = await interactionService.recordInteraction({
         songId: currentSong.id,
         played: false,
         completed: false,
@@ -127,8 +160,12 @@ export const PlayerProvider = ({ children }) => {
         listenDurationMs: positionMs,
         songDurationMs: songDuration
       });
+      
+      if (result.error) {
+        console.warn('Failed to record song skip:', result.error);
+      }
     } catch (error) {
-      console.error('Error recording song skip:', error);
+      console.warn('Error recording song skip:', error);
     }
   };
 

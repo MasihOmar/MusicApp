@@ -18,7 +18,7 @@ const { width } = Dimensions.get('window');
 const SongCard = ({ song, onPress, onOptionsPress }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const coverArtUrl = streamService.getCoverArtUrl(song.fileName);
+  const coverArtUrl = streamService.getCoverArtUrl(song);
   // console.log('Song:', song.title);
   // console.log('FileName:', song.fileName);
   // console.log('Cover Art URL:', coverArtUrl);

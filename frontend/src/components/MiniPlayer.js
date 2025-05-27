@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import Colors from '../constants/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { streamService } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -40,8 +41,7 @@ const MiniPlayer = ({
   onPlayPause, 
   onNext,
   onPrevious,
-  onPress,
-  coverArtUrl 
+  onPress
 }) => {
   const insets = useSafeAreaInsets();
   
@@ -52,6 +52,9 @@ const MiniPlayer = ({
   const TAB_BAR_HEIGHT = 49;
   const EXTRA_PADDING = 20;
   const bottomPosition = TAB_BAR_HEIGHT + (insets.bottom > 0 ? insets.bottom : 0) + EXTRA_PADDING;
+
+  // Generate cover art URL just like SongCard
+  const coverArtUrl = streamService.getCoverArtUrl(currentSong);
 
   return (
     <TouchableOpacity 
@@ -64,7 +67,7 @@ const MiniPlayer = ({
         style={styles.gradient}
       >
         <Image
-          source={{ uri: coverArtUrl }}
+          source={{ uri: coverArtUrl || 'https://via.placeholder.com/300' }}
           style={styles.artwork}
           resizeMode="cover"
         />

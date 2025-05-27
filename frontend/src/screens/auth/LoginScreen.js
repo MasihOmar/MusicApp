@@ -17,17 +17,17 @@ import Colors from '../../constants/colors';
 export default function LoginScreen() {
   const navigation = useNavigation();
   const { login, isLoading } = useAuth();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Error', 'Please enter both username and password.');
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password.');
       return;
     }
 
     try {
-      await login(username, password);
+      await login(email, password);
     } catch (error) {
       Alert.alert('Login Failed', error.message || 'An error occurred during login. Please try again.');
     }
@@ -48,11 +48,12 @@ export default function LoginScreen() {
       <View style={styles.formContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Username"
+          placeholder="Email"
           placeholderTextColor={Colors.textSecondary}
-          value={username}
-          onChangeText={setUsername}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
+          keyboardType="email-address"
           editable={!isLoading}
         />
         

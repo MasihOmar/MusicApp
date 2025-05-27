@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import Colors from '../../constants/colors';
 import { playlistService, streamService } from '../../services/api';
 import { Ionicons } from '@expo/vector-icons';
+import PlaylistCoverArt from '../../components/PlaylistCoverArt';
 
 export default function LibraryScreen({ navigation }) {
   const { user } = useAuth();
@@ -60,19 +61,21 @@ export default function LibraryScreen({ navigation }) {
     try {
       const playlistsData = await playlistService.getAllPlaylists();
       
-      // Fetch song counts for each playlist
+      // Fetch songs for each playlist
       const playlistsWithSongs = await Promise.all(
         playlistsData.map(async (playlist) => {
           try {
             const songs = await playlistService.getPlaylistSongs(playlist.id);
             return {
               ...playlist,
+              songs: songs || [],
               songCount: songs ? songs.length : 0
             };
           } catch (err) {
             console.error(`Error fetching songs for playlist ${playlist.id}:`, err);
             return {
               ...playlist,
+              songs: [],
               songCount: 0
             };
           }
@@ -167,11 +170,12 @@ export default function LibraryScreen({ navigation }) {
         end={{ x: 1, y: 0 }}
         style={styles.playlistGradient}
       >
-        <Image 
-          source={{ uri: streamService.getCoverArtUrl(item.file_name) }} 
-          style={styles.playlistCover}
-          defaultSource={{ uri: streamService.getDefaultCoverArt() }}
-        />
+        <View style={styles.playlistCoverContainer}>
+          <PlaylistCoverArt 
+            songs={item.songs || []}
+            size={60}
+          />
+        </View>
         <View style={styles.playlistInfo}>
           <Text style={styles.playlistTitle}>{item.title || item.name}</Text>
           <Text style={styles.playlistTracks}>
@@ -463,16 +467,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  playlistCoverContainer: {
+    width: 60,
+    height: 60,
+    marginRight: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   playlistGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-  },
-  playlistCover: {
-    width: 60,
-    height: 60,
-    borderRadius: 4,
-    marginRight: 15,
   },
   playlistInfo: {
     flex: 1,
@@ -580,6 +585,5 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
-    marginLeft: 8,
   },
 });

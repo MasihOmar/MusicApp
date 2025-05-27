@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/colors';
 import { playlistService } from '../services/api';
+import PlaylistCoverArt from './PlaylistCoverArt';
 
 const PlaylistModal = ({ visible, onClose, songId, onSuccess }) => {
   const [playlists, setPlaylists] = useState([]);
@@ -74,12 +75,14 @@ const PlaylistModal = ({ visible, onClose, songId, onSuccess }) => {
     
     setAddingToPlaylist(true);
     try {
-      // Create new playlist
+      // 1. Create new playlist
       const newPlaylist = await playlistService.createPlaylist({
-        name: newPlaylistName.trim(),
-        songs: songId ? [songId] : []
+        name: newPlaylistName.trim()
       });
-      
+      // 2. If a song is selected, add it to the new playlist
+      if (newPlaylist && newPlaylist.id && songId) {
+        await playlistService.addSongToPlaylist(newPlaylist.id, songId);
+      }
       if (newPlaylist) {
         onSuccess?.();
         onClose();
@@ -95,28 +98,41 @@ const PlaylistModal = ({ visible, onClose, songId, onSuccess }) => {
     }
   };
 
-  const renderPlaylistItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.playlistItem}
-      onPress={() => handleAddToPlaylist(item.id)}
-      disabled={addingToPlaylist}
-    >
-      <LinearGradient
-        colors={Colors.gradient.cardPrimary}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.playlistGradient}
+  const renderPlaylistItem = ({ item }) => {
+    console.log('Playlist item:', item);
+    if (item.songs) {
+      item.songs.forEach((song, idx) => {
+        console.log(`  Song ${idx}:`, song.fileName || song.file_name, song);
+      });
+    } else {
+      console.log('  No songs in this playlist');
+    }
+    return (
+      <TouchableOpacity 
+        style={styles.playlistItem}
+        onPress={() => handleAddToPlaylist(item.id)}
+        disabled={addingToPlaylist}
       >
-        <View style={styles.playlistInfo}>
-          <Text style={styles.playlistTitle}>{item.title || item.name}</Text>
-          <Text style={styles.playlistTracks}>
-            {`${item.trackCount || item.songCount || 0} songs`}
-          </Text>
-        </View>
-        <Ionicons name="add-circle" size={24} color={Colors.primary} />
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+        <LinearGradient
+          colors={Colors.gradient.cardPrimary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.playlistGradient}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <PlaylistCoverArt songs={item.songs || []} size={48} circular={false} />
+            <View style={styles.playlistInfo}>
+              <Text style={styles.playlistTitle}>{item.title || item.name}</Text>
+              <Text style={styles.playlistTracks}>
+                {`${item.trackCount || item.songCount || 0} songs`}
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="add-circle" size={24} color={Colors.primary} />
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  };
 
   const renderCreateNewPlaylist = () => (
     <View style={styles.createNewContainer}>

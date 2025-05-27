@@ -16,10 +16,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import { songService, playlistService, streamService, recommendationService } from '../../services/api';
+import { songService, playlistService, streamService, recommendationService, playbackHistoryService, authService, interactionService } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SongOptionsModal from '../../components/SongOptionsModal';
 import SongCard from '../../components/SongCard';
+import PlaylistCoverArt from '../../components/PlaylistCoverArt';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -32,8 +34,178 @@ export default function HomeScreen({ navigation }) {
   const [genreRecommendations, setGenreRecommendations] = useState([]);
   const [matrixRecommendations, setMatrixRecommendations] = useState([]);
   const [userId, setUserId] = useState(null);
+  const [recentSongs, setRecentSongs] = useState([]);
 
-  // Fetch user ID from AsyncStorage
+  // Add useFocusEffect to refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('HomeScreen focused, refreshing data...');
+      loadData();
+    }, [userId])
+  );
+
+  // Move loadData outside useEffect so it can be called from useFocusEffect
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch songs and playlists in parallel
+      const [songsResponse, playlistsData] = await Promise.all([
+        songService.getAllSongs(),
+        playlistService.getAllPlaylists()
+      ]);
+      
+      console.log('Playlists data received:', playlistsData);
+      
+      // Handle error case for songs
+      if (songsResponse && songsResponse.error) {
+        console.error('Error fetching songs:', songsResponse.error);
+        setError(songsResponse.error);
+        setSongs([]);
+      } else {
+        setSongs(songsResponse || []);
+      }
+      
+      // Handle error case for playlists
+      if (playlistsData && playlistsData.error) {
+        console.error('Error fetching playlists:', playlistsData.error);
+        setError(playlistsData.error);
+        setPlaylists([]);
+      } else {
+        console.log('Processing playlists:', playlistsData);
+        // Fetch songs for each playlist (full song objects)
+        const playlistsWithSongs = await Promise.all(
+          (playlistsData || []).map(async (playlist) => {
+            try {
+              console.log('Fetching songs for playlist:', playlist.id);
+              const songIds = await playlistService.getPlaylistSongs(playlist.id);
+              console.log('Song IDs for playlist:', playlist.id, songIds);
+              // Fetch full song objects for each song ID
+              const fullSongs = await Promise.all(
+                (songIds || []).map(async (song) => {
+                  // If song is already a full object, just return it
+                  if (song.fileName || song.file_name) return song;
+                  try {
+                    return await songService.getSongById(song.id);
+                  } catch {
+                    return null;
+                  }
+                })
+              );
+              const validSongs = fullSongs.filter(Boolean);
+              return {
+                ...playlist,
+                songs: validSongs,
+                songCount: validSongs.length
+              };
+            } catch (err) {
+              console.error(`Error fetching songs for playlist ${playlist.id}:`, err);
+              return {
+                ...playlist,
+                songs: [],
+                songCount: 0
+              };
+            }
+          })
+        );
+        
+        setPlaylists(playlistsWithSongs);
+      }
+      
+      // Get recent playbacks if user is logged in
+      if (userId) {
+        try {
+          const isAuthenticated = await authService.isAuthenticated();
+          if (isAuthenticated) {
+            const recentPlaybacks = await playbackHistoryService.getRecentPlaybacks();
+            if (recentPlaybacks && Array.isArray(recentPlaybacks)) {
+              setRecentSongs(recentPlaybacks);
+            } else {
+              setRecentSongs([]);
+            }
+          } else {
+            console.log('User not authenticated, skipping recent playbacks');
+            setRecentSongs([]);
+          }
+        } catch (recError) {
+          console.log('Error fetching recent playbacks:', recError.message);
+          setRecentSongs([]);
+        }
+      }
+      
+      // Get recommendations if user is logged in
+      if (userId) {
+        try {
+          // Get regular recommendations
+          const userRecommendations = await recommendationService.getUserRecommendations(userId, 10);
+          setRecommendations(userRecommendations || []);
+          
+          // Get matrix factorization recommendations
+          try {
+            const matrixRecs = await recommendationService.getMatrixRecommendations(userId, 10);
+            setMatrixRecommendations(matrixRecs || []);
+          } catch (matrixError) {
+            console.error('Error fetching matrix recommendations:', matrixError);
+            // Fall back to regular recommendations
+            setMatrixRecommendations(userRecommendations || []);
+          }
+        } catch (recError) {
+          console.error('Error fetching recommendations:', recError);
+          // Fall back to filtering songs by genre
+          if (songsResponse && songsResponse.length > 0) {
+            const genres = [...new Set(songsResponse.map(song => song.genre))];
+            if (genres.length > 0) {
+              const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+              const filteredByGenre = songsResponse.filter(song => song.genre === randomGenre);
+              setRecommendations(filteredByGenre.slice(0, 10));
+              setMatrixRecommendations(filteredByGenre.slice(0, 10));
+            }
+          }
+        }
+      } else {
+        // If no user ID, use genre-based recommendations
+        if (songsResponse && songsResponse.length > 0) {
+          const genres = [...new Set(songsResponse.map(song => song.genre))];
+          if (genres.length > 0) {
+            const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+            const filteredByGenre = songsResponse.filter(song => song.genre === randomGenre);
+            setRecommendations(filteredByGenre.slice(0, 10));
+            setMatrixRecommendations(filteredByGenre.slice(0, 10));
+          }
+        }
+      }
+      
+      // Get genre-based recommendations (pick a random genre from available songs)
+      if (songsResponse && songsResponse.length > 0) {
+        const genres = [...new Set(songsResponse.map(song => song.genre))];
+        if (genres.length > 0) {
+          const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+          try {
+            const genreRecs = await recommendationService.getGenreRecommendations(randomGenre);
+            setGenreRecommendations({
+              genre: randomGenre,
+              songs: genreRecs || []
+            });
+          } catch (genreError) {
+            console.error('Error fetching genre recommendations:', genreError);
+            // Fall back to filtering songs by the selected genre
+            const filteredByGenre = songsResponse.filter(song => song.genre === randomGenre);
+            setGenreRecommendations({
+              genre: randomGenre,
+              songs: filteredByGenre.slice(0, 5)
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load content. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Remove the old useEffect that called loadData
   useEffect(() => {
     const getUserId = async () => {
       try {
@@ -48,88 +220,6 @@ export default function HomeScreen({ navigation }) {
 
     getUserId();
   }, []);
-
-  // Fetch data from the API
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Fetch songs and playlists in parallel
-        const [songsData, playlistsData] = await Promise.all([
-          songService.getAllSongs(),
-          playlistService.getAllPlaylists()
-        ]);
-        
-        setSongs(songsData || []);
-        setPlaylists(playlistsData || []);
-        
-        // Get recommendations if user is logged in
-        if (userId) {
-          try {
-            // Get regular recommendations
-            const userRecommendations = await recommendationService.getUserRecommendations(userId, 10);
-            setRecommendations(userRecommendations || []);
-            
-            // Get matrix factorization recommendations
-            try {
-              const matrixRecs = await recommendationService.getMatrixRecommendations(userId, 10);
-              setMatrixRecommendations(matrixRecs || []);
-            } catch (matrixError) {
-              console.error('Error fetching matrix recommendations:', matrixError);
-              // Fall back to regular recommendations
-              setMatrixRecommendations(userRecommendations || []);
-            }
-          } catch (recError) {
-            console.error('Error fetching recommendations:', recError);
-            // Fall back to random songs as recommendations
-            if (songsData && songsData.length > 0) {
-              const randomRecs = getRandomItems(songsData, 10);
-              setRecommendations(randomRecs);
-              setMatrixRecommendations(randomRecs);
-            }
-          }
-        } else {
-          // If no user ID, use random songs as recommendations
-          if (songsData && songsData.length > 0) {
-            const randomRecs = getRandomItems(songsData, 10);
-            setRecommendations(randomRecs);
-            setMatrixRecommendations(randomRecs);
-          }
-        }
-        
-        // Get genre-based recommendations (pick a random genre from available songs)
-        if (songsData && songsData.length > 0) {
-          const genres = [...new Set(songsData.map(song => song.genre))];
-          if (genres.length > 0) {
-            const randomGenre = genres[Math.floor(Math.random() * genres.length)];
-            try {
-              const genreRecs = await recommendationService.getGenreRecommendations(randomGenre);
-              setGenreRecommendations({
-                genre: randomGenre,
-                songs: genreRecs || []
-              });
-            } catch (genreError) {
-              console.error('Error fetching genre recommendations:', genreError);
-              // Fall back to filtering songs by the selected genre
-              const filteredByGenre = songsData.filter(song => song.genre === randomGenre);
-              setGenreRecommendations({
-                genre: randomGenre,
-                songs: filteredByGenre.slice(0, 5)
-              });
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load content. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [userId]);
 
   // Helper function to get random items from an array
   const getRandomItems = (array, count) => {
@@ -150,14 +240,60 @@ export default function HomeScreen({ navigation }) {
     const fetchData = async () => {
       try {
         // Fetch songs and playlists in parallel
-        const [songsData, playlistsData] = await Promise.all([
+        const [songsResponse, playlistsData] = await Promise.all([
           songService.getAllSongs(),
           playlistService.getAllPlaylists()
         ]);
         
-        setSongs(songsData || []);
-        setPlaylists(playlistsData || []);
-
+        console.log('Playlists data received:', playlistsData);
+        
+        // Handle error case for songs
+        if (songsResponse && songsResponse.error) {
+          console.error('Error fetching songs:', songsResponse.error);
+          setError(songsResponse.error);
+          setSongs([]);
+        } else {
+          setSongs(songsResponse || []);
+        }
+        
+        // Fetch songs for each playlist (full song objects)
+        const playlistsWithSongs = await Promise.all(
+          (playlistsData || []).map(async (playlist) => {
+            try {
+              console.log('Fetching songs for playlist:', playlist.id);
+              const songIds = await playlistService.getPlaylistSongs(playlist.id);
+              console.log('Song IDs for playlist:', playlist.id, songIds);
+              // Fetch full song objects for each song ID
+              const fullSongs = await Promise.all(
+                (songIds || []).map(async (song) => {
+                  // If song is already a full object, just return it
+                  if (song.fileName || song.file_name) return song;
+                  try {
+                    return await songService.getSongById(song.id);
+                  } catch {
+                    return null;
+                  }
+                })
+              );
+              const validSongs = fullSongs.filter(Boolean);
+              return {
+                ...playlist,
+                songs: validSongs,
+                songCount: validSongs.length
+              };
+            } catch (err) {
+              console.error(`Error fetching songs for playlist ${playlist.id}:`, err);
+              return {
+                ...playlist,
+                songs: [],
+                songCount: 0
+              };
+            }
+          })
+        );
+        
+        setPlaylists(playlistsWithSongs);
+        
         // Get recommendations if user is logged in
         if (userId) {
           try {
@@ -176,25 +312,33 @@ export default function HomeScreen({ navigation }) {
             }
           } catch (recError) {
             console.error('Error fetching recommendations on retry:', recError);
-            // Fall back to random songs as recommendations
-            if (songsData && songsData.length > 0) {
-              const randomRecs = getRandomItems(songsData, 10);
-              setRecommendations(randomRecs);
-              setMatrixRecommendations(randomRecs);
+            // Fall back to filtering songs by genre
+            if (songsResponse && songsResponse.length > 0) {
+              const genres = [...new Set(songsResponse.map(song => song.genre))];
+              if (genres.length > 0) {
+                const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+                const filteredByGenre = songsResponse.filter(song => song.genre === randomGenre);
+                setRecommendations(filteredByGenre.slice(0, 10));
+                setMatrixRecommendations(filteredByGenre.slice(0, 10));
+              }
             }
           }
         } else {
-          // If no user ID, use random songs as recommendations
-          if (songsData && songsData.length > 0) {
-            const randomRecs = getRandomItems(songsData, 10);
-            setRecommendations(randomRecs);
-            setMatrixRecommendations(randomRecs);
+          // If no user ID, use genre-based recommendations
+          if (songsResponse && songsResponse.length > 0) {
+            const genres = [...new Set(songsResponse.map(song => song.genre))];
+            if (genres.length > 0) {
+              const randomGenre = genres[Math.floor(Math.random() * genres.length)];
+              const filteredByGenre = songsResponse.filter(song => song.genre === randomGenre);
+              setRecommendations(filteredByGenre.slice(0, 10));
+              setMatrixRecommendations(filteredByGenre.slice(0, 10));
+            }
           }
         }
         
         // Get genre-based recommendations
-        if (songsData && songsData.length > 0) {
-          const genres = [...new Set(songsData.map(song => song.genre))];
+        if (songsResponse && songsResponse.length > 0) {
+          const genres = [...new Set(songsResponse.map(song => song.genre))];
           if (genres.length > 0) {
             const randomGenre = genres[Math.floor(Math.random() * genres.length)];
             try {
@@ -206,7 +350,7 @@ export default function HomeScreen({ navigation }) {
             } catch (genreError) {
               console.error('Error fetching genre recommendations on retry:', genreError);
               // Fall back to filtering songs by the selected genre
-              const filteredByGenre = songsData.filter(song => song.genre === randomGenre);
+              const filteredByGenre = songsResponse.filter(song => song.genre === randomGenre);
               setGenreRecommendations({
                 genre: randomGenre,
                 songs: filteredByGenre.slice(0, 5)
@@ -245,11 +389,69 @@ export default function HomeScreen({ navigation }) {
   const [selectedSong, setSelectedSong] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
-  // Render song item - using API data
+  // Add authentication check before recording interactions
+  const checkAuthAndRecord = async (songId) => {
+    try {
+      // First check if we have a userId
+      const storedUserId = await AsyncStorage.getItem('userId');
+      if (!storedUserId) {
+        console.log('No userId found, skipping interaction recording');
+        return;
+      }
+
+      // Then check authentication
+      const isAuthenticated = await authService.isAuthenticated();
+      if (!isAuthenticated) {
+        console.log('User not authenticated, skipping interaction recording');
+        return;
+      }
+
+      // Get the current token
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        console.log('No auth token found, skipping interaction recording');
+        return;
+      }
+
+      // Try to record interaction first
+      try {
+        const interactionResult = await interactionService.recordInteraction({
+          songId,
+          type: 'PLAY',
+          timestamp: new Date().toISOString()
+        });
+        
+        if (interactionResult && interactionResult.error) {
+          console.log('Could not record interaction:', interactionResult.error);
+          return; // Don't proceed with playback recording if interaction failed
+        }
+
+        // Try to record playback only if interaction was successful
+        try {
+          const playbackResult = await playbackHistoryService.recordPlayback(songId);
+          if (playbackResult && playbackResult.error) {
+            console.log('Could not record playback:', playbackResult.error);
+          }
+        } catch (playbackError) {
+          console.log('Could not record playback:', playbackError.message);
+        }
+      } catch (interactionError) {
+        console.log('Could not record interaction:', interactionError.message);
+      }
+    } catch (error) {
+      console.log('Error in checkAuthAndRecord:', error.message);
+      // Don't show error to user, just log it
+    }
+  };
+
+  // Update the renderSongItem to use the new function
   const renderSongItem = ({ item }) => (
     <SongCard
       song={item}
-      onPress={() => navigation.navigate('Player', { songId: item.id })}
+      onPress={() => {
+        checkAuthAndRecord(item.id);
+        navigation.navigate('Player', { songId: item.id });
+      }}
       onOptionsPress={(song) => {
         setSelectedSong(song);
         setOptionsModalVisible(true);
@@ -257,11 +459,14 @@ export default function HomeScreen({ navigation }) {
     />
   );
 
-  // Render recommendation item
+  // Update the renderRecommendationItem to use the new function
   const renderRecommendationItem = ({ item }) => (
     <SongCard
       song={item}
-      onPress={() => navigation.navigate('Player', { songId: item.id })}
+      onPress={() => {
+        checkAuthAndRecord(item.id);
+        navigation.navigate('Player', { songId: item.id });
+      }}
       onOptionsPress={(song) => {
         setSelectedSong(song);
         setOptionsModalVisible(true);
@@ -270,24 +475,37 @@ export default function HomeScreen({ navigation }) {
   );
 
   // Render playlist item - using API data
-  const renderPlaylistItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.featuredItem}
-      onPress={() => navigation.navigate('PlaylistDetail', { id: item.id })}
-    >
-      <View style={styles.featuredImageContainer}>
-        <Image source={{ uri: 'https://via.placeholder.com/300/4776E6' }} style={styles.featuredImage} />
-        <LinearGradient
-          colors={['transparent', 'rgba(10, 14, 23, 0.8)']}
-          style={styles.featuredGradient}
-        />
-        <View style={styles.featuredContent}>
-          <Text style={styles.featuredTitle}>{item.name}</Text>
-          <Text style={styles.featuredDescription}>{`${item.name} playlist`}</Text>
+  const renderPlaylistItem = ({ item }) => {
+    console.log('HomeScreen Playlist:', item);
+    if (item.songs) {
+      item.songs.forEach((song, idx) => {
+        console.log(`  Song ${idx}:`, song.fileName || song.file_name, song);
+      });
+    } else {
+      console.log('  No songs in this playlist');
+    }
+    return (
+      <TouchableOpacity 
+        style={styles.featuredItem}
+        onPress={() => navigation.navigate('PlaylistDetail', { id: item.id })}
+      >
+        <View style={styles.featuredImageContainer}>
+          <PlaylistCoverArt 
+            songs={item.songs || []}
+            size={180}
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(10, 14, 23, 0.8)']}
+            style={styles.featuredGradient}
+          />
+          <View style={styles.featuredContent}>
+            <Text style={styles.featuredTitle}>{item.name}</Text>
+            <Text style={styles.featuredDescription}>{`${item.songCount || 0} songs`}</Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   // Show loading indicator
   if (isLoading) {
@@ -384,6 +602,7 @@ export default function HomeScreen({ navigation }) {
         {playlists && playlists.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Çalma Listeleri</Text>
+            {console.log('Rendering playlists:', playlists)}
             <FlatList
               data={playlists}
               renderItem={renderPlaylistItem}
@@ -397,17 +616,19 @@ export default function HomeScreen({ navigation }) {
         )}
         
         {/* Recently Played Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recently Played</Text>
-          <FlatList
-            data={songs.slice(0, 10)}
-            renderItem={renderSongItem}
-            keyExtractor={item => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.continueListContainer}
-          />
-        </View>
+        {userId && recentSongs.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recently Played</Text>
+            <FlatList
+              data={recentSongs}
+              renderItem={renderSongItem}
+              keyExtractor={item => item.id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.continueListContainer}
+            />
+          </View>
+        )}
 
         {/* Recommendations Section */}
         {recommendations.length > 0 && (
@@ -547,10 +768,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   horizontalList: {
-    paddingLeft: 20,
+    paddingLeft: 0,
   },
   horizontalListContent: {
-    paddingRight: 20,
+    paddingRight: 0,
+    marginRight: 20,
   },
   continueItem: {
     width: width * 0.4,
@@ -620,31 +842,30 @@ const styles = StyleSheet.create({
   },
   featuredItem: {
     width: width * 0.7,
-    height: 200,
-    marginRight: 15,
-    borderRadius: 10,
+    marginRight: 2,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   featuredImageContainer: {
     width: '100%',
-    height: '100%',
-  },
-  featuredImage: {
-    width: '100%',
-    height: '100%',
+    height: 180,
+    position: 'relative',
   },
   featuredGradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '50%',
+    height: 80,
+    zIndex: 1,
   },
   featuredContent: {
     position: 'absolute',
-    bottom: 15,
-    left: 15,
-    right: 15,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 15,
+    zIndex: 2,
   },
   featuredTitle: {
     color: Colors.textPrimary,
@@ -714,7 +935,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   featuredListContainer: {
-    paddingRight: 16,
+    paddingRight: 0,
+    marginRight: 20,
   },
   lastSection: {
     paddingBottom: 40,

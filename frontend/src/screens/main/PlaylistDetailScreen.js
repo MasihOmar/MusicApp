@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   FlatList,
   StatusBar,
@@ -16,6 +15,7 @@ import { playlistService, streamService, songService, checkServerReachability } 
 import NetworkStatus from '../../components/NetworkStatus';
 import SongCard from '../../components/SongCard';
 import SongOptionsModal from '../../components/SongOptionsModal';
+import PlaylistCoverArt from '../../components/PlaylistCoverArt';
 
 export default function PlaylistDetailScreen({ navigation, route }) {
   const { id: playlistId } = route.params;
@@ -163,6 +163,51 @@ export default function PlaylistDetailScreen({ navigation, route }) {
     );
   }
   
+  // If playlist is empty, show empty state
+  if (songs.length === 0) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        
+        <LinearGradient
+          colors={[Colors.gradient.pop[0], Colors.backgroundDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 0.6 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.backButtonText}>←</Text>
+            </TouchableOpacity>
+            
+            <PlaylistCoverArt 
+              songs={[]}
+              size={180}
+            />
+            
+            <View style={styles.playlistInfo}>
+              <Text style={styles.playlistTitle}>{playlist.name}</Text>
+              <View style={styles.playlistStats}>
+                <Text style={styles.playlistSongCount}>0 songs</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={[styles.container, styles.centerContent]}>
+          <Text style={styles.emptyText}>This playlist is empty</Text>
+          <Text style={styles.emptySubText}>Add some songs to get started</Text>
+          <TouchableOpacity 
+            style={styles.addSongsButton}
+            onPress={() => navigation.navigate('Search')}
+          >
+            <Text style={styles.addSongsButtonText}>Add Songs</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+  
   const renderSongItem = ({ item, index }) => (
     <SongCard
       song={item}
@@ -191,10 +236,9 @@ export default function PlaylistDetailScreen({ navigation, route }) {
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           
-          <Image 
-            source={{ uri: placeholderImage }} 
-            style={styles.playlistCover}
-            defaultSource={{ uri: placeholderImage }}
+          <PlaylistCoverArt 
+            songs={songs}
+            size={180}
           />
           
           <View style={styles.playlistInfo}>
@@ -299,18 +343,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 24,
   },
-  playlistCover: {
-    width: 180,
-    height: 180,
-    borderRadius: 8,
-    alignSelf: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
-  },
   playlistInfo: {
     alignItems: 'center',
   },
@@ -407,7 +439,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: Colors.textSecondary,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubText: {
     fontSize: 16,
+    color: Colors.textSecondary,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  addSongsButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+  },
+  addSongsButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

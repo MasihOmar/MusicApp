@@ -27,8 +27,10 @@ function AppContent() {
     };
   }, []);
 
-  // Don't show mini player when on the full player screen
-  const shouldShowMiniPlayer = currentSong && currentRouteName !== 'Player';
+  // Don't show mini player when on the full player screen or auth screens
+  const shouldShowMiniPlayer = currentSong && 
+    currentRouteName !== 'Player' && 
+    !['Login', 'Register', 'Profile'].includes(currentRouteName);
 
   return (
     <>
