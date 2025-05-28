@@ -204,7 +204,7 @@ export default function HomeScreen({ navigation }) {
       }
     } catch (err) {
       console.error('Error fetching data:', err);
-      setError('Failed to load content. Please try again.');
+      setError('İçerik yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     } finally {
       setIsLoading(false);
     }
@@ -365,7 +365,7 @@ export default function HomeScreen({ navigation }) {
         }
       } catch (err) {
         console.error('Error fetching data on retry:', err);
-        setError('Failed to load content. Please try again.');
+        setError('İçerik yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
       } finally {
         setIsLoading(false);
       }
@@ -512,7 +512,7 @@ export default function HomeScreen({ navigation }) {
         style={[styles.container, styles.centerContent]}
       >
         <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading content...</Text>
+        <Text style={styles.loadingText}>İçerik yükleniyor...</Text>
       </LinearGradient>
     );
   }
@@ -529,7 +529,7 @@ export default function HomeScreen({ navigation }) {
           style={styles.retryButton}
           onPress={retryFetch}
         >
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>Tekrar Dene</Text>
         </TouchableOpacity>
       </LinearGradient>
     );
@@ -614,7 +614,7 @@ export default function HomeScreen({ navigation }) {
         {/* Recently Played Section */}
         {userId && recentSongs.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recently Played</Text>
+            <Text style={styles.sectionTitle}>Son Çalınanlar</Text>
             <FlatList
               data={recentSongs}
               renderItem={renderSongItem}
@@ -629,7 +629,7 @@ export default function HomeScreen({ navigation }) {
         {/* Recommendations Section */}
         {recommendations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recommended for You</Text>
+            <Text style={styles.sectionTitle}>Sizin İçin Önerilenler</Text>
             <FlatList
               data={recommendations}
               renderItem={renderRecommendationItem}
@@ -644,8 +644,8 @@ export default function HomeScreen({ navigation }) {
         {/* Matrix Factorization Recommendations Section */}
         {matrixRecommendations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Discover with AI</Text>
-            <Text style={styles.sectionSubtitle}>Using matrix factorization</Text>
+            <Text style={styles.sectionTitle}>Yapay Zeka ile Keşfet</Text>
+            <Text style={styles.sectionSubtitle}>Matris çarpanlarına göre öneriler</Text>
             <FlatList
               data={matrixRecommendations}
               renderItem={renderRecommendationItem}
@@ -660,7 +660,7 @@ export default function HomeScreen({ navigation }) {
         {/* Genre Recommendations Section */}
         {genreRecommendations.songs && genreRecommendations.songs.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Best of {genreRecommendations.genre}</Text>
+            <Text style={styles.sectionTitle}>{genreRecommendations.genre} En İyileri</Text>
             <FlatList
               data={genreRecommendations.songs}
               renderItem={renderRecommendationItem}
@@ -674,7 +674,7 @@ export default function HomeScreen({ navigation }) {
         
         {/* Featured Playlists Section */}
         <View style={[styles.section, styles.lastSection]}>
-          <Text style={styles.sectionTitle}>Featured Playlists</Text>
+          <Text style={styles.sectionTitle}>Öne Çıkan Çalma Listeleri</Text>
           <FlatList
             data={playlists}
             renderItem={renderPlaylistItem}
